@@ -33,10 +33,6 @@ struct Args {
     /// Path to keymap.toml.
     #[arg(long, default_value = "keymap.toml")]
     keymap: PathBuf,
-
-    /// Run headless (no window). Useful for unit-test-style smoke runs.
-    #[arg(long)]
-    headless: bool,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -85,6 +81,29 @@ fn main() -> anyhow::Result<()> {
     #[cfg(not(feature = "desktop"))]
     let _ = keymap; // suppress unused warning
 
+    let mut render = recur::render::Render::new(cfg.render.width, cfg.render.height, "r_e_c_u_r")?;
+
+    #[cfg(debug_assertions)]
+    {
+        // Smoke-test convenience: pre-load assets/test_smpte.mp4 into slot 0.
+        if std::env::var("RECUR_SMOKE_AUTO_LOAD").is_ok() {
+            let p = std::env::current_dir()?.join("assets/test_smpte.mp4");
+            if p.exists() {
+                state.banks[0].slots[0] = Some(recur::state::Slot {
+                    location: p,
+                    name: "test_smpte.mp4".into(),
+                    start: -1.0,
+                    end: -1.0,
+                    length: 0.0,
+                    rate: 1.0,
+                });
+                // Trigger play immediately so the smoke run shows video.
+                use recur::apply::RackHandle;
+                rack.trigger_slot(0, 0);
+            }
+        }
+    }
+
     let target_fps = cfg.render.fps as u64;
     let frame_dt = Duration::from_micros(1_000_000 / target_fps.max(1));
     let max_frames = args.smoke_frames;
@@ -94,19 +113,25 @@ fn main() -> anyhow::Result<()> {
     loop {
         // 1. Drain input → Actions
         #[cfg(feature = "desktop")]
+        for ev in render.pump() {
+            input.push_key_event(&ev);
+        }
+
+        #[cfg(feature = "desktop")]
+        if render.should_close() {
+            info!("window closed, exiting");
+            break;
+        }
+
+        #[cfg(feature = "desktop")]
         let actions: Vec<Action> = input.poll();
 
         #[cfg(not(feature = "desktop"))]
         let actions: Vec<Action> = Vec::new();
 
         for action in actions {
-            let consumed = stack.dispatch(action.clone(), &mut state);
-            if !consumed {
-                apply(action, &mut state, &mut rack);
-            } else {
-                // Some actions (e.g. EnterMode) need both screen and state mutation.
-                apply(action, &mut state, &mut rack);
-            }
+            let _consumed = stack.dispatch(action.clone(), &mut state);
+            apply(action, &mut state, &mut rack);
         }
 
         // 2. Rack tick
@@ -118,8 +143,12 @@ fn main() -> anyhow::Result<()> {
             top.render(&state, &mut grid);
         }
 
-        // 4. Render frame (window or pi) — stubbed for Phase 1.
-        // Real GL backend is a follow-up.
+        // 4. Pull latest frame from current player and draw.
+        render.begin_frame();
+        if let Some((rgba, w, h)) = rack.current.pull_latest_rgba() {
+            render.draw_video_layer(&rgba, w, h, 1.0);
+        }
+        render.end_frame();
 
         // 5. Pace the loop
         t_next += frame_dt;
