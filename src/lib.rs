@@ -7,4 +7,4 @@ pub mod config;     // Task 3
 pub mod persist;    // Task 4
 pub mod sample;     // Task 5
 pub mod state;      // Task 2
-// pub mod video;      // Task 8
+pub mod video;      // Task 8

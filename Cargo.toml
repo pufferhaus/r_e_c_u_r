@@ -22,10 +22,10 @@ embedded-graphics = "0.8"
 rand = "0.8"
 rand_chacha = "0.3"
 
-# gstreamer deps added in Task 8 (Player + pipeline_factory). Requires system
-# libs: `brew install gstreamer gst-plugins-{base,good,bad,ugly} gst-libav pkg-config`
-# on macOS, or `apt install libgstreamer1.0-dev gstreamer1.0-{plugins-{base,good,bad,ugly},libav}`
-# on Linux. Keeping them out of Task 1 lets the scaffold build without system gst.
+gstreamer = "0.23"
+gstreamer-app = "0.23"
+gstreamer-gl = "0.23"
+gstreamer-pbutils = "0.23"
 
 # desktop backend (default)
 winit = { version = "0.30", optional = true }
