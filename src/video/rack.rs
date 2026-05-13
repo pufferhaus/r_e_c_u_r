@@ -6,7 +6,7 @@ use tracing::warn;
 
 use crate::apply::RackHandle;
 use crate::error::Result;
-use crate::state::{LoopType, OnFinish, SamplerSettings, Slot};
+use crate::state::{Bank, LoopType, OnFinish, SamplerSettings, Slot};
 use crate::video::player::{Player, PlayerStatus};
 
 pub struct PlayerRack {
@@ -21,6 +21,10 @@ pub struct PlayerRack {
     /// Cleared on swap so loop-point edits only apply to the actively triggered player.
     /// Future work: track next_binding separately and promote on swap.
     pub current_binding: Option<(u8, u8)>,
+    /// Snapshot of the bank that was active at the last `trigger_slot_with` call.
+    /// Used by `tick_sequential` to pre-queue the successor slot so that
+    /// `OnFinish::Switch` can fire a decode-free swap.
+    pub last_bank: Bank,
 }
 
 impl PlayerRack {
@@ -33,6 +37,7 @@ impl PlayerRack {
             rng: ChaCha8Rng::seed_from_u64(0xC0FFEE),
             next_layer: 251,
             current_binding: None,
+            last_bank: Bank::empty(),
         }
     }
 
@@ -73,6 +78,24 @@ impl PlayerRack {
     fn tick_sequential(&mut self) {
         if self.current.status == PlayerStatus::Loaded {
             self.current.play();
+        }
+        // While current is playing and next is empty, pre-queue the successor
+        // slot so that OnFinish::Switch can swap to a pre-rolled player.
+        if self.current.status == PlayerStatus::Playing && self.next.status == PlayerStatus::Empty {
+            if let Some((_b, s)) = self.current_binding {
+                // Clone rng so we don't advance the main rng state for this speculative peek.
+                let mut rng_clone = self.rng.clone();
+                if let Some(next_slot) = crate::sample::context::get_next_context(
+                    &self.last_bank,
+                    s,
+                    &self.settings,
+                    &mut rng_clone,
+                ) {
+                    if let Err(e) = self.queue_next(next_slot) {
+                        warn!("pre-queue next slot failed: {e}");
+                    }
+                }
+            }
         }
         if self.current.status == PlayerStatus::Finished {
             match self.settings.on_finish {
@@ -134,8 +157,11 @@ impl RackHandle for PlayerRack {
         self.current.unload();
         self.next.unload();
     }
-    fn trigger_slot_with(&mut self, bank: u8, slot_idx: u8, slot: Slot) {
+    fn trigger_slot_with(&mut self, bank: u8, slot_idx: u8, slot: Slot, bank_snapshot: Bank) {
         self.current_binding = Some((bank, slot_idx));
+        self.last_bank = bank_snapshot;
+        // Clear next so tick_sequential will pre-queue the fresh successor.
+        self.next.unload();
         if let Err(e) = self.jump_to(slot) {
             warn!("trigger_slot_with {bank}-{slot_idx} failed: {e}");
         }
@@ -169,6 +195,7 @@ impl RackHandle for PlayerRack {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::state::Slot;
 
     #[test]
     fn alloc_layer_wraps_at_zero() {
@@ -176,6 +203,25 @@ mod tests {
         r.next_layer = 0;
         assert_eq!(r.alloc_layer(), 0);
         assert_eq!(r.next_layer, 254);
+    }
+
+    #[test]
+    fn trigger_stores_bank_snapshot() {
+        let mut r = PlayerRack::new(SamplerSettings::default());
+        let mut bank = Bank::empty();
+        bank.slots[0] = Some(Slot {
+            location: "/tmp/x.mp4".into(),
+            name: "x".into(),
+            start: -1.0,
+            end: -1.0,
+            length: 0.0,
+            rate: 1.0,
+        });
+        use crate::apply::RackHandle;
+        let slot = bank.slots[0].clone().unwrap();
+        r.trigger_slot_with(0, 0, slot, bank.clone());
+        assert!(r.last_bank.slots[0].is_some());
+        assert_eq!(r.current_binding, Some((0, 0)));
     }
 
     #[test]

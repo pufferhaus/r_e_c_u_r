@@ -2,7 +2,7 @@
 
 use crate::action::{Action, SettingId};
 use crate::state::{
-    ControlMode, DisplayMode, LoadNext, LoopType, OnFinish, OnLoad, OnStart, PlayerMode,
+    Bank, ControlMode, DisplayMode, LoadNext, LoopType, OnFinish, OnLoad, OnStart, PlayerMode,
     SharedState, Slot, SLOTS_PER_BANK,
 };
 
@@ -13,8 +13,10 @@ pub trait RackHandle {
 
     /// Trigger playback of the given slot. Caller resolves slot data from
     /// SharedState and passes explicit bank/slot indices so the rack can track
-    /// the binding without holding its own stale bank snapshot.
-    fn trigger_slot_with(&mut self, bank: u8, slot_idx: u8, slot: Slot);
+    /// the binding without holding its own stale bank snapshot. `bank_snapshot`
+    /// is a clone of the active bank so the rack can pre-queue the successor
+    /// slot without holding a reference into SharedState.
+    fn trigger_slot_with(&mut self, bank: u8, slot_idx: u8, slot: Slot, bank_snapshot: Bank);
 
     /// Current player's playback position in seconds. `None` if nothing is loaded.
     fn current_position(&self) -> Option<f64>;
@@ -62,9 +64,11 @@ pub fn apply<R: RackHandle>(action: Action, state: &mut SharedState, rack: &mut 
             // for now plain trigger is enough for apply unit-tests.
             let n = n.min((SLOTS_PER_BANK - 1) as u8) as usize;
             if !state.function_on {
-                let bank = state.bank_number as usize;
-                if let Some(Some(slot)) = state.banks.get(bank).and_then(|b| b.slots.get(n)).cloned() {
-                    rack.trigger_slot_with(bank as u8, n as u8, slot);
+                let bank_idx = state.bank_number;
+                if let Some(bank) = state.banks.get(bank_idx as usize).cloned() {
+                    if let Some(slot) = bank.slots.get(n).cloned().flatten() {
+                        rack.trigger_slot_with(bank_idx, n as u8, slot, bank);
+                    }
                 }
             }
             state.function_on = false;
@@ -198,7 +202,7 @@ mod tests {
         fn reload_all(&mut self) {
             self.reload_count += 1;
         }
-        fn trigger_slot_with(&mut self, bank: u8, slot_idx: u8, slot: Slot) {
+        fn trigger_slot_with(&mut self, bank: u8, slot_idx: u8, slot: Slot, _bank_snapshot: crate::state::Bank) {
             self.trigger_calls.push((bank, slot_idx, slot.name.clone()));
             self.binding = Some((bank, slot_idx));
         }

@@ -9,6 +9,25 @@ use crate::error::Result;
 use crate::state::Slot;
 use crate::video::pipeline_factory::{self, BuiltPipeline};
 
+/// A decoded video frame that borrows directly from the GStreamer buffer — no
+/// per-frame copy. The `MappedBuffer` holds both the buffer ref and the map
+/// lock; it is unmapped on drop. The sample is retained to keep the buffer's
+/// refcount alive for the duration of the frame.
+pub struct VideoFrame {
+    /// Keeps the buffer refcount alive for the duration of the map.
+    _sample: gst::Sample,
+    map: gst::buffer::MappedBuffer<gst::buffer::Readable>,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl VideoFrame {
+    /// Returns a zero-copy view of the decoded RGBA pixels.
+    pub fn data(&self) -> &[u8] {
+        self.map.as_slice()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlayerStatus {
     Empty,
@@ -122,16 +141,20 @@ impl Player {
     /// Pull the most recent decoded RGBA frame from the appsink, if one is
     /// available right now. Returns `None` when no sample is ready or the
     /// pipeline is not in a playing/paused state.
-    pub fn pull_latest_rgba(&self) -> Option<(Vec<u8>, u32, u32)> {
+    ///
+    /// The returned `VideoFrame` holds a zero-copy view into the GStreamer
+    /// buffer — no allocation or memcpy. The buffer is unmapped when the
+    /// frame is dropped.
+    pub fn pull_latest_rgba(&self) -> Option<VideoFrame> {
         let appsink = self.appsink.as_ref()?;
         let sample = appsink.try_pull_sample(gst::ClockTime::ZERO)?;
-        let buffer = sample.buffer()?;
+        let buffer = sample.buffer_owned()?;
         let caps = sample.caps()?;
         let s = caps.structure(0)?;
         let w: i32 = s.get("width").ok()?;
         let h: i32 = s.get("height").ok()?;
-        let map = buffer.map_readable().ok()?;
-        Some((map.as_slice().to_vec(), w as u32, h as u32))
+        let map = buffer.into_mapped_buffer_readable().ok()?;
+        Some(VideoFrame { _sample: sample, map, width: w as u32, height: h as u32 })
     }
 
     fn seek_to_start(&mut self) {
@@ -219,10 +242,10 @@ mod tests {
         p.play();
         for _ in 0..200 {
             p.tick();
-            if let Some((rgba, w, h)) = p.pull_latest_rgba() {
-                assert_eq!(rgba.len(), (w * h * 4) as usize);
-                assert_eq!(w, 720);
-                assert_eq!(h, 480);
+            if let Some(frame) = p.pull_latest_rgba() {
+                assert_eq!(frame.data().len(), (frame.width * frame.height * 4) as usize);
+                assert_eq!(frame.width, 720);
+                assert_eq!(frame.height, 480);
                 return;
             }
             std::thread::sleep(std::time::Duration::from_millis(10));

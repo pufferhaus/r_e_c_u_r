@@ -99,7 +99,8 @@ fn main() -> anyhow::Result<()> {
                 state.banks[0].slots[0] = Some(slot.clone());
                 // Trigger play immediately so the smoke run shows video.
                 use recur::apply::RackHandle;
-                rack.trigger_slot_with(0, 0, slot);
+                let bank_snapshot = state.banks[0].clone();
+                rack.trigger_slot_with(0, 0, slot, bank_snapshot);
             }
         }
     }
@@ -150,8 +151,8 @@ fn main() -> anyhow::Result<()> {
 
         // 4. Pull latest frame from current player and draw.
         render.begin_frame();
-        if let Some((rgba, w, h)) = rack.current.pull_latest_rgba() {
-            render.draw_video_layer(&rgba, w, h, 1.0);
+        if let Some(frame) = rack.current.pull_latest_rgba() {
+            render.draw_video_layer(frame.data(), frame.width, frame.height, 1.0);
         }
         render.end_frame();
 

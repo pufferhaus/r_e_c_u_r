@@ -276,6 +276,10 @@ pub struct PiTarget {
     last_tex_w: u32,
     last_tex_h: u32,
 
+    // Cached vertex attribute locations (set once at program compile time)
+    pos_loc: u32,
+    uv_loc: u32,
+
     // KMS framebuffer tracking (page-flip double buffer)
     scanning: Option<(framebuffer::Handle, gbm::BufferObject<()>)>,
 
@@ -318,6 +322,14 @@ impl PiTarget {
         let u_alpha = unsafe { ctx.gl.get_uniform_location(program, "u_alpha") };
         let u_tex = unsafe { ctx.gl.get_uniform_location(program, "u_tex") };
 
+        // Cache vertex attribute locations (constant after program compile)
+        let pos_loc = unsafe {
+            ctx.gl.get_attrib_location(program, "a_pos").expect("a_pos not found in shader") as u32
+        };
+        let uv_loc = unsafe {
+            ctx.gl.get_attrib_location(program, "a_uv").expect("a_uv not found in shader") as u32
+        };
+
         Ok(Self {
             ctx,
             program,
@@ -327,6 +339,8 @@ impl PiTarget {
             u_tex,
             last_tex_w: w,
             last_tex_h: h,
+            pos_loc,
+            uv_loc,
             scanning: None,
             should_exit: false,
         })
@@ -383,26 +397,18 @@ impl PiTarget {
 
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.vbo));
 
-            let pos_loc = gl.get_attrib_location(self.program, "a_pos");
-            if let Some(loc) = pos_loc {
-                gl.enable_vertex_attrib_array(loc);
-                gl.vertex_attrib_pointer_f32(loc, 2, glow::FLOAT, false, 16, 0);
-            }
+            // a_pos: 2 floats, stride 16 bytes, offset 0
+            gl.enable_vertex_attrib_array(self.pos_loc);
+            gl.vertex_attrib_pointer_f32(self.pos_loc, 2, glow::FLOAT, false, 16, 0);
 
-            let uv_loc = gl.get_attrib_location(self.program, "a_uv");
-            if let Some(loc) = uv_loc {
-                gl.enable_vertex_attrib_array(loc);
-                gl.vertex_attrib_pointer_f32(loc, 2, glow::FLOAT, false, 16, 8);
-            }
+            // a_uv: 2 floats, stride 16 bytes, offset 8
+            gl.enable_vertex_attrib_array(self.uv_loc);
+            gl.vertex_attrib_pointer_f32(self.uv_loc, 2, glow::FLOAT, false, 16, 8);
 
             gl.draw_arrays(glow::TRIANGLES, 0, 6);
 
-            if let Some(loc) = pos_loc {
-                gl.disable_vertex_attrib_array(loc);
-            }
-            if let Some(loc) = uv_loc {
-                gl.disable_vertex_attrib_array(loc);
-            }
+            gl.disable_vertex_attrib_array(self.pos_loc);
+            gl.disable_vertex_attrib_array(self.uv_loc);
         }
     }
 

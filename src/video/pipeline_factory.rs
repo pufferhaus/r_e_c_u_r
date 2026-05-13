@@ -17,10 +17,9 @@ pub struct BuiltPipeline {
 /// happens in our render module via `glTexSubImage2D`. Future tasks can
 /// swap this for `glupload ! glsinkbin` once the GL context is wired through.
 pub fn build_for_file(path: &Path) -> Result<BuiltPipeline> {
-    let uri = format!(
-        "file://{}",
-        path.canonicalize().map_err(Error::from)?.display()
-    );
+    let abs = path.canonicalize().map_err(Error::from)?;
+    let uri = gst::glib::filename_to_uri(&abs, None)
+        .map_err(|e| Error::Gst(format!("filename_to_uri: {e}")))?;
 
     let desc = format!(
         "uridecodebin uri={uri} ! videoconvert ! video/x-raw,format=RGBA ! \
