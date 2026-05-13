@@ -28,6 +28,7 @@ fn default_rate() -> f32 {
 }
 
 pub const SLOTS_PER_BANK: usize = 10;
+pub const MAX_BANKS: u8 = 26;
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Bank {
@@ -158,6 +159,7 @@ pub struct SharedState {
     pub feedback_active: bool,
     pub sampler: SamplerSettings,
     pub paths_to_browser: Vec<PathBuf>,
+    pub last_error: Option<String>,
 }
 
 impl SharedState {
@@ -172,6 +174,7 @@ impl SharedState {
             feedback_active: false,
             sampler: SamplerSettings::default(),
             paths_to_browser: Vec::new(),
+            last_error: None,
         }
     }
 
@@ -253,5 +256,11 @@ mod tests {
         assert_eq!(s.bank_number, 0);
         assert_eq!(s.banks.len(), 1);
         assert!(!s.function_on);
+    }
+
+    #[test]
+    fn shared_state_starts_with_no_error() {
+        let s = SharedState::new();
+        assert!(s.last_error.is_none());
     }
 }

@@ -11,6 +11,13 @@ use std::path::{Path, PathBuf};
 use crate::error::{Error, Result};
 use crate::state::{Bank, SamplerSettings, Slot, SLOTS_PER_BANK};
 
+fn write_atomic(path: &Path, contents: &str) -> Result<()> {
+    let tmp = path.with_extension("toml.tmp");
+    std::fs::write(&tmp, contents)?;
+    std::fs::rename(&tmp, path)?;
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // Wire types (TOML representation)
 // ---------------------------------------------------------------------------
@@ -111,7 +118,7 @@ pub fn save_banks(state_dir: &Path, banks: &[Bank]) -> Result<()> {
         file: p.display().to_string(),
         source: e,
     })?;
-    std::fs::write(&p, s)?;
+    write_atomic(&p, &s)?;
     Ok(())
 }
 
@@ -133,7 +140,7 @@ pub fn save_settings(state_dir: &Path, settings: &SamplerSettings) -> Result<()>
         file: p.display().to_string(),
         source: e,
     })?;
-    std::fs::write(&p, s)?;
+    write_atomic(&p, &s)?;
     Ok(())
 }
 
@@ -159,7 +166,7 @@ pub fn save_paths(state_dir: &Path, roots: &[PathBuf]) -> Result<()> {
         file: p.display().to_string(),
         source: e,
     })?;
-    std::fs::write(&p, s)?;
+    write_atomic(&p, &s)?;
     Ok(())
 }
 
@@ -225,5 +232,17 @@ mod tests {
         save_paths(tmp.path(), &roots).unwrap();
         let got = load_paths(tmp.path()).unwrap();
         assert_eq!(got, roots);
+    }
+
+    #[test]
+    fn save_banks_writes_atomically() {
+        let tmp = tempfile::tempdir().unwrap();
+        let banks = vec![Bank::empty()];
+        save_banks(tmp.path(), &banks).unwrap();
+        // After write, no .tmp file should remain.
+        let tmp_path = tmp.path().join("banks.toml.tmp");
+        assert!(!tmp_path.exists());
+        let real = tmp.path().join("banks.toml");
+        assert!(real.exists());
     }
 }

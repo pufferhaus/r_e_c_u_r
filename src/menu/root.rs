@@ -43,7 +43,9 @@ impl RootScreen {
         grid.write_row(3, &body_title(state));
 
         // Row 16 — footer (status / message)
-        let footer = if state.function_on {
+        let footer = if let Some(err) = state.last_error.as_deref() {
+            format!("ERR: {}", err.chars().take(40).collect::<String>())
+        } else if state.function_on {
             "               < FUNCTION KEY ON >".to_string()
         } else {
             format!("CONTROL: {:?}", state.control_mode)

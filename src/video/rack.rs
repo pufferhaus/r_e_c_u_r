@@ -120,6 +120,12 @@ impl PlayerRack {
     pub fn now_mut(&mut self) -> &mut Player {
         &mut self.current
     }
+
+    pub fn drain_last_error(&mut self) -> Option<String> {
+        self.last.last_error.take()
+            .or_else(|| self.current.last_error.take())
+            .or_else(|| self.next.last_error.take())
+    }
 }
 
 impl RackHandle for PlayerRack {
@@ -182,5 +188,13 @@ mod tests {
         assert_eq!(r.last.status, PlayerStatus::Empty);
         assert_eq!(r.current.status, PlayerStatus::Empty);
         assert_eq!(r.next.status, PlayerStatus::Empty);
+    }
+
+    #[test]
+    fn drain_last_error_pulls_from_any_player() {
+        let mut r = PlayerRack::new(SamplerSettings::default());
+        r.current.last_error = Some("decode failed".into());
+        assert_eq!(r.drain_last_error(), Some("decode failed".into()));
+        assert!(r.drain_last_error().is_none());
     }
 }

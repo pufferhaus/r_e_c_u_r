@@ -26,6 +26,7 @@ pub struct Player {
     pub layer: u32,
     pub alpha: f32,
     pub last_position: f64,
+    pub last_error: Option<String>,
     pipeline: Option<gst::Pipeline>,
     pub appsink: Option<AppSink>,
 }
@@ -38,6 +39,7 @@ impl Player {
             layer,
             alpha: 0.0,
             last_position: 0.0,
+            last_error: None,
             pipeline: None,
             appsink: None,
         }
@@ -73,7 +75,9 @@ impl Player {
                 }
                 Eos(_) => self.status = PlayerStatus::Finished,
                 Error(e) => {
-                    warn!("gst error from {:?}: {}", e.src().map(|s| s.name()), e.error());
+                    let msg = format!("gst error from {:?}: {}", e.src().map(|s| s.name()), e.error());
+                    warn!("{msg}");
+                    self.last_error = Some(msg);
                     self.status = PlayerStatus::Error;
                 }
                 _ => {}

@@ -137,6 +137,11 @@ fn main() -> anyhow::Result<()> {
         // 2. Rack tick
         rack.tick();
 
+        // Drain any gst error into shared state for the UI to display.
+        if let Some(err) = rack.drain_last_error() {
+            state.last_error = Some(err);
+        }
+
         // 3. Re-render text grid
         grid.clear();
         if let Some(top) = stack.top() {

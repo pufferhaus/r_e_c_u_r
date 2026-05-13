@@ -76,6 +76,9 @@ pub fn apply<R: RackHandle>(action: Action, state: &mut SharedState, rack: &mut 
         }
         Action::NextBank => {
             use crate::state::Bank;
+            if (state.bank_number as usize) + 1 >= crate::state::MAX_BANKS as usize {
+                return; // already at last bank, no-op
+            }
             if (state.bank_number as usize) + 1 >= state.banks.len() {
                 state.banks.push(Bank::empty());
             }
@@ -270,6 +273,17 @@ mod tests {
         apply(Action::NextBank, &mut s, &mut r);
         assert_eq!(s.bank_number, 1);
         assert_eq!(s.banks.len(), 2);
+    }
+
+    #[test]
+    fn next_bank_caps_at_max() {
+        let mut s = SharedState::new();
+        let mut r = SpyRack::default();
+        for _ in 0..50 {
+            apply(Action::NextBank, &mut s, &mut r);
+        }
+        assert_eq!(s.bank_number as usize, crate::state::MAX_BANKS as usize - 1);
+        assert!(s.banks.len() <= crate::state::MAX_BANKS as usize);
     }
 
     #[test]
