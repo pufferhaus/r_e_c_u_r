@@ -1,0 +1,63 @@
+[package]
+name = "recur"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "Rust port of r_e_c_u_r — video sampler for Raspberry Pi"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+anyhow = "1"
+thiserror = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+glow = "0.14"
+notify = "6"
+bytemuck = "1"
+embedded-graphics = "0.8"
+rand = "0.8"
+rand_chacha = "0.3"
+
+# gstreamer deps added in Task 8 (Player + pipeline_factory). Requires system
+# libs: `brew install gstreamer gst-plugins-{base,good,bad,ugly} gst-libav pkg-config`
+# on macOS, or `apt install libgstreamer1.0-dev gstreamer1.0-{plugins-{base,good,bad,ugly},libav}`
+# on Linux. Keeping them out of Task 1 lets the scaffold build without system gst.
+
+# desktop backend (default)
+winit = { version = "0.30", optional = true }
+glutin = { version = "0.32", optional = true }
+glutin-winit = { version = "0.5", optional = true }
+raw-window-handle = { version = "0.6", optional = true }
+softbuffer = { version = "0.4", optional = true }
+
+# pi backend
+khronos-egl = { version = "6", features = ["dynamic"], optional = true }
+gbm = { version = "0.15", default-features = false, features = ["drm-support"], optional = true }
+drm = { version = "0.12", optional = true }
+evdev = { version = "0.13", optional = true }
+memmap2 = { version = "0.9", optional = true }
+libc = { version = "0.2", optional = true }
+
+[features]
+default = ["desktop"]
+desktop = ["dep:winit", "dep:glutin", "dep:glutin-winit", "dep:raw-window-handle", "dep:softbuffer"]
+pi = ["dep:khronos-egl", "dep:gbm", "dep:drm", "dep:evdev", "dep:memmap2", "dep:libc"]
+
+[dev-dependencies]
+pretty_assertions = "1"
+tempfile = "3"
+
+[[bin]]
+name = "recur"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "abort"
