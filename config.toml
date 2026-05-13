@@ -1,0 +1,6 @@
+# r_e_c_u_r default render config
+
+[render]
+width = 720
+height = 480
+fps = 30
