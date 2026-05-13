@@ -45,11 +45,7 @@ impl Screen for BrowserBody {
             let slot = slot_label_for(state, &row.path).unwrap_or_else(|| {
                 if row.is_file { "-" } else { "x" }.to_string()
             });
-            let truncated = if row.display.len() > 38 {
-                &row.display[..38]
-            } else {
-                &row.display
-            };
+            let truncated: String = row.display.chars().take(38).collect();
             grid.write_row(row_idx, &format!("{:<38} {:<5}", truncated, slot));
             if abs == self.selected {
                 grid.invert_row(row_idx);
@@ -144,5 +140,19 @@ mod tests {
         assert_eq!(b.open.len(), 1);
         b.handle(Action::Enter, &mut st);
         assert_eq!(b.open.len(), 0);
+    }
+
+    #[test]
+    fn render_handles_non_ascii_display_name() {
+        let tmp = tempfile::tempdir().unwrap();
+        // Create a file with a non-ASCII name longer than 38 chars.
+        let name = "日本語ファイル名前テスト動画クリップ長いファイル名.mp4";
+        fs::write(tmp.path().join(name), b"").unwrap();
+        let mut st = SharedState::new();
+        st.paths_to_browser = vec![tmp.path().to_path_buf()];
+        let b = BrowserBody::new();
+        let mut grid = crate::status::grid::TextGrid::new(48, 17);
+        // Should not panic.
+        b.render(&st, &mut grid);
     }
 }

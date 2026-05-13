@@ -56,10 +56,11 @@ impl Screen for SamplerBody {
 
 fn fmt_slot_row(idx: usize, s: &Slot) -> String {
     let base = s.name.rsplit_once('.').map(|(a, _)| a).unwrap_or(&s.name);
+    let truncated: String = base.chars().take(17).collect();
     format!(
         "{:^6} {:<17} {:>5} {:>5} {:<5}",
         idx,
-        &base[..base.len().min(17)],
+        truncated,
         fmt_time(s.length),
         fmt_time(s.start),
         fmt_time(s.end),
@@ -96,5 +97,20 @@ mod tests {
     fn fmt_time_clamps_negative() {
         assert_eq!(fmt_time(-1.0), "");
         assert_eq!(fmt_time(65.0), "01:05");
+    }
+
+    #[test]
+    fn fmt_slot_row_handles_non_ascii() {
+        let s = Slot {
+            location: "/clips/日本語ビデオ.mp4".into(),
+            name: "日本語ビデオ.mp4".into(),
+            start: -1.0,
+            end: -1.0,
+            length: 0.0,
+            rate: 1.0,
+        };
+        // Should not panic.
+        let row = fmt_slot_row(7, &s);
+        assert!(row.contains("7"));
     }
 }

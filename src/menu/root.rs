@@ -9,11 +9,19 @@ use crate::ui::{Screen, ScreenResult};
 
 use super::{browser::BrowserBody, sampler::SamplerBody, settings::SettingsBody};
 
-pub struct RootScreen;
+pub struct RootScreen {
+    browser: BrowserBody,
+    sampler: SamplerBody,
+    settings: SettingsBody,
+}
 
 impl RootScreen {
     pub fn new() -> Self {
-        Self
+        Self {
+            browser: BrowserBody::new(),
+            sampler: SamplerBody::new(),
+            settings: SettingsBody::new(),
+        }
     }
 
     fn render_chrome(&self, state: &SharedState, grid: &mut TextGrid) {
@@ -47,28 +55,21 @@ impl RootScreen {
 impl Screen for RootScreen {
     fn render(&self, state: &SharedState, grid: &mut TextGrid) {
         self.render_chrome(state, grid);
-        let body: Box<dyn Screen> = match state.display_mode {
-            DisplayMode::Browser => Box::new(BrowserBody::new()),
-            DisplayMode::Sampler => Box::new(SamplerBody::new()),
-            DisplayMode::Settings => Box::new(SettingsBody::new()),
-            _ => Box::new(StubBody),
-        };
-        body.render(state, grid);
+        match state.display_mode {
+            DisplayMode::Browser => self.browser.render(state, grid),
+            DisplayMode::Sampler => self.sampler.render(state, grid),
+            DisplayMode::Settings => self.settings.render(state, grid),
+            _ => grid.write_row(10, "      (not yet implemented in Phase 1)"),
+        }
     }
 
-    fn handle(&mut self, _action: Action, _state: &mut SharedState) -> ScreenResult {
-        // RootScreen never consumes — body screens do.
-        ScreenResult::Continue
-    }
-}
-
-struct StubBody;
-impl Screen for StubBody {
-    fn render(&self, _state: &SharedState, grid: &mut TextGrid) {
-        grid.write_row(10, "      (not yet implemented in Phase 1)");
-    }
-    fn handle(&mut self, _: Action, _: &mut SharedState) -> ScreenResult {
-        ScreenResult::Continue
+    fn handle(&mut self, action: Action, state: &mut SharedState) -> ScreenResult {
+        match state.display_mode {
+            DisplayMode::Browser => self.browser.handle(action, state),
+            DisplayMode::Sampler => self.sampler.handle(action, state),
+            DisplayMode::Settings => self.settings.handle(action, state),
+            _ => ScreenResult::Continue,
+        }
     }
 }
 
@@ -104,6 +105,7 @@ fn body_title(state: &SharedState) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::status::grid::ATTR_INVERSE;
 
     #[test]
     fn body_title_brackets_current_mode() {
@@ -111,5 +113,29 @@ mod tests {
         st.display_mode = DisplayMode::Sampler;
         let t = body_title(&st);
         assert!(t.contains("[sampler"));
+    }
+
+    #[test]
+    fn nav_routes_to_active_body() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("a.mp4"), b"").unwrap();
+        std::fs::write(tmp.path().join("b.mp4"), b"").unwrap();
+        let mut st = SharedState::new();
+        st.display_mode = DisplayMode::Browser;
+        st.paths_to_browser = vec![tmp.path().to_path_buf()];
+        let mut root = RootScreen::new();
+
+        // Before NavDown: selected is 0, so row 5 (body row 0) is inverted.
+        let mut grid = TextGrid::new(48, 17);
+        root.render(&st, &mut grid);
+        assert!(grid.at(5, 0).attr & ATTR_INVERSE != 0, "row 5 should be inverted before nav");
+        assert!(grid.at(6, 0).attr & ATTR_INVERSE == 0, "row 6 should not be inverted before nav");
+
+        // NavDown advances selected to 1; now row 6 should be inverted.
+        root.handle(Action::NavDown, &mut st);
+        let mut grid2 = TextGrid::new(48, 17);
+        root.render(&st, &mut grid2);
+        assert!(grid2.at(5, 0).attr & ATTR_INVERSE == 0, "row 5 should not be inverted after nav");
+        assert!(grid2.at(6, 0).attr & ATTR_INVERSE != 0, "row 6 should be inverted after nav");
     }
 }
