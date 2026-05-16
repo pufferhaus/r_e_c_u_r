@@ -209,4 +209,13 @@ mod tests {
         let lib = ShaderLibrary::load_dir(tmp.path()).unwrap();
         assert!(lib.get("__safe__").is_some());
     }
+
+    #[test]
+    fn picks_up_real_passthrough_shader() {
+        use std::path::PathBuf;
+        let repo_shaders = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("shaders");
+        let lib = ShaderLibrary::load_dir(&repo_shaders).unwrap();
+        assert!(lib.get("passthrough").is_some(), "passthrough should load from real shaders/ dir");
+        assert!(lib.get("__safe__").is_some(), "baked safe-shader still present");
+    }
 }

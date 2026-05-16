@@ -1,0 +1,3 @@
+name = "passthrough"
+display_name = "Passthrough"
+min_gles = "1.00"
