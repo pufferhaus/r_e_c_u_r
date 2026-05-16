@@ -5,6 +5,7 @@ mod desktop;
 #[cfg(feature = "pi-base")]
 mod pi;
 mod shader;
+pub mod shader_assembly;
 #[cfg(any(feature = "desktop", feature = "pi-base"))]
 mod text;
 
