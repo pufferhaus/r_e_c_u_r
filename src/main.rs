@@ -85,16 +85,19 @@ fn main() -> anyhow::Result<()> {
     let banks = persist::load_banks(&state_dir)?;
     let settings = persist::load_settings(&state_dir)?;
     let paths = persist::load_paths(&state_dir)?;
+    let shader_banks = persist::load_shader_banks(&state_dir)?;
     info!(
         "loaded {} banks, paths_to_browser = {:?}",
         banks.len(),
         paths
     );
+    info!("loaded {} shader banks", shader_banks.len());
 
     let mut state = SharedState::new();
     state.banks = banks;
     state.sampler = settings;
     state.paths_to_browser = paths;
+    state.shader_banks = shader_banks;
 
     state.gles_profile = args.gles_profile.to_profile();
 
@@ -264,6 +267,7 @@ fn main() -> anyhow::Result<()> {
     persist::save_banks(&state_dir, &state.banks)?;
     persist::save_settings(&state_dir, &state.sampler)?;
     persist::save_paths(&state_dir, &state.paths_to_browser)?;
+    persist::save_shader_banks(&state_dir, &state.shader_banks)?;
     Ok(())
 }
 
