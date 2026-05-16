@@ -261,6 +261,9 @@ fn main() -> anyhow::Result<()> {
                         }
                     }
                 }
+                ShaderCommand::SetParams(params) => {
+                    render.set_shader_params(params);
+                }
                 ShaderCommand::Clear => render.clear_shader(),
             }
         }

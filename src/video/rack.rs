@@ -8,6 +8,7 @@ use tracing::warn;
 #[derive(Debug, Clone)]
 pub enum ShaderCommand {
     Trigger(String, [f32; 8]),
+    SetParams([f32; 8]),
     Clear,
 }
 
@@ -213,6 +214,11 @@ impl RackHandle for PlayerRack {
     fn clear_shader(&mut self) {
         if let Some(tx) = &self.shader_tx {
             let _ = tx.send(ShaderCommand::Clear);
+        }
+    }
+    fn set_shader_params(&mut self, params: [f32; 8]) {
+        if let Some(tx) = &self.shader_tx {
+            let _ = tx.send(ShaderCommand::SetParams(params));
         }
     }
 }

@@ -40,6 +40,7 @@ mod stub {
         pub fn pulse_shader_trigger(&mut self) {}
         pub fn invalidate_shader(&mut self, _: &str) {}
         pub fn upsert_shader(&mut self, _: &str, _: crate::shader::LoadedShader) {}
+        pub fn set_shader_params(&mut self, _: [f32; 8]) {}
     }
 }
 #[cfg(not(any(feature = "desktop", feature = "pi-base")))]

@@ -30,6 +30,9 @@ pub trait RackHandle {
     fn set_rate_now(&mut self, rate: f32);
     fn trigger_shader(&mut self, name: &str, params: [f32; 8]);
     fn clear_shader(&mut self);
+    /// Push only the param values; no shader compile / select. Used by the
+    /// PARAM screen for live-edit while a shader is already active.
+    fn set_shader_params(&mut self, params: [f32; 8]);
 }
 
 pub fn apply<R: RackHandle>(action: Action, state: &mut SharedState, rack: &mut R) {
@@ -169,17 +172,21 @@ pub fn apply<R: RackHandle>(action: Action, state: &mut SharedState, rack: &mut 
             let Some(active) = state.shader_active_slot else { return; };
             let bank_idx = state.shader_bank_number as usize;
             let focus = state.shader_focus as usize;
+            let mut updated_params: Option<[f32; 8]> = None;
             if let Some(Some(slot)) = state
                 .shader_banks
                 .get_mut(bank_idx)
                 .and_then(|b| b.slots.get_mut(active as usize))
             {
-                // Step = 1% of [-1.0, 1.0] range as a default since we don't
-                // know the meta here. ShaderPipeline re-uploads clamped values
-                // on next frame.
+                // Step = 1% of [-1.0, 1.0] range. Starter shaders all expect
+                // params in that range.
                 let step = 0.02_f32 * delta as f32;
-                let v = (slot.params[focus] + step).clamp(-100.0, 100.0);
+                let v = (slot.params[focus] + step).clamp(-1.0, 1.0);
                 slot.params[focus] = v;
+                updated_params = Some(slot.params);
+            }
+            if let Some(p) = updated_params {
+                rack.set_shader_params(p);
             }
         }
     }
@@ -251,6 +258,7 @@ mod tests {
         binding: Option<(u8, u8)>,
         shader_triggers: Vec<String>,
         shader_cleared: u32,
+        shader_param_pushes: Vec<[f32; 8]>,
     }
 
     impl RackHandle for SpyRack {
@@ -277,6 +285,9 @@ mod tests {
         }
         fn clear_shader(&mut self) {
             self.shader_cleared += 1;
+        }
+        fn set_shader_params(&mut self, params: [f32; 8]) {
+            self.shader_param_pushes.push(params);
         }
     }
 
@@ -507,5 +518,22 @@ mod tests {
         let mut r = SpyRack::default();
         apply(Action::TriggerShaderSlot(0), &mut s, &mut r);
         assert!(!s.function_on, "TriggerShaderSlot must clear function_on like SelectSlot does");
+    }
+
+    #[test]
+    fn shader_param_adjust_pushes_params_to_rack() {
+        let mut s = SharedState::new();
+        s.control_mode = ControlMode::ShaderParam;
+        s.shader_focus = 1;
+        s.shader_active_slot = Some(0);
+        s.current_shader_bank_mut().slots[0] = Some(ShaderSlot {
+            shader: "color_shift".into(),
+            params: [0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        });
+        let mut r = SpyRack::default();
+        apply(Action::ShaderParamAdjust(1), &mut s, &mut r);
+        assert_eq!(r.shader_param_pushes.len(), 1);
+        let pushed = r.shader_param_pushes[0];
+        assert!((pushed[1] - 0.52).abs() < 1e-5, "got {pushed:?}");
     }
 }

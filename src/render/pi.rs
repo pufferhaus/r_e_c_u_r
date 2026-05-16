@@ -536,6 +536,10 @@ impl PiTarget {
     pub fn upsert_shader(&mut self, name: &str, shader: crate::shader::LoadedShader) {
         self.pipeline.library_mut().upsert(name, shader);
     }
+
+    pub fn set_shader_params(&mut self, params: [f32; 8]) {
+        self.pipeline.set_params(params);
+    }
 }
 
 impl Drop for PiTarget {
