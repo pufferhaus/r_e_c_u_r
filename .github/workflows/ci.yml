@@ -1,0 +1,104 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --all-features -- -D warnings
+
+  test-desktop-default:
+    name: test (desktop, pi5 shader parity)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install GStreamer dev libs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev \
+            libglib2.0-dev \
+            pkg-config
+      - run: cargo test --lib
+
+  test-desktop-pi3-profile:
+    name: test (desktop --gles-profile pi3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install GStreamer dev libs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev \
+            libglib2.0-dev \
+            pkg-config
+      # The --gles-profile pi3 flag is not yet implemented (Phase 2 work).
+      # This lane currently runs the same test suite as the default lane;
+      # once the flag exists, replace with:
+      #   cargo test --lib -- --gles-profile pi3
+      - run: cargo test --lib
+
+  check-pi3:
+    name: cargo check (--features pi3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+      - run: cargo check --no-default-features --features pi3 --target aarch64-unknown-linux-gnu
+
+  check-pi5:
+    name: cargo check (--features pi5)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+      - run: cargo check --no-default-features --features pi5 --target aarch64-unknown-linux-gnu
+
+  cross-build:
+    name: cross-build release artifacts
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [lint, test-desktop-default, check-pi3, check-pi5]
+    strategy:
+      matrix:
+        target_feature: [pi3, pi5]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+      - name: Install cross
+        run: cargo install cross --locked
+      - name: Cross-build ${{ matrix.target_feature }}
+        run: cross build --release --no-default-features --features ${{ matrix.target_feature }} --target aarch64-unknown-linux-gnu
+      - name: Rename artifact
+        run: |
+          mv target/aarch64-unknown-linux-gnu/release/recur \
+             target/aarch64-unknown-linux-gnu/release/recur-aarch64-${{ matrix.target_feature }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: recur-aarch64-${{ matrix.target_feature }}
+          path: target/aarch64-unknown-linux-gnu/release/recur-aarch64-${{ matrix.target_feature }}
