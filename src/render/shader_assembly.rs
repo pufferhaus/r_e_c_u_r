@@ -5,7 +5,7 @@
 use crate::shader::GlesVersion;
 
 /// The active GLES profile for the current binary or runtime override.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum GlesProfile {
     V100,
     V310,

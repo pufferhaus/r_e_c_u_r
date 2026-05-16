@@ -3,6 +3,9 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use crate::render::shader_assembly::GlesProfile;
+use crate::shader::ShaderBank;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Slot {
     pub location: PathBuf,
@@ -160,6 +163,12 @@ pub struct SharedState {
     pub sampler: SamplerSettings,
     pub paths_to_browser: Vec<PathBuf>,
     pub last_error: Option<String>,
+
+    // Phase 2 — conjur
+    pub shader_banks: Vec<ShaderBank>,
+    pub shader_bank_number: u8,
+    pub shader_focus: u8,
+    pub gles_profile: GlesProfile,
 }
 
 impl SharedState {
@@ -175,6 +184,10 @@ impl SharedState {
             sampler: SamplerSettings::default(),
             paths_to_browser: Vec::new(),
             last_error: None,
+            shader_banks: vec![ShaderBank::empty()],
+            shader_bank_number: 0,
+            shader_focus: 0,
+            gles_profile: GlesProfile::V310,
         }
     }
 
@@ -185,6 +198,15 @@ impl SharedState {
     pub fn current_bank_mut(&mut self) -> &mut Bank {
         let n = self.bank_number as usize;
         &mut self.banks[n]
+    }
+
+    pub fn current_shader_bank(&self) -> &ShaderBank {
+        &self.shader_banks[self.shader_bank_number as usize]
+    }
+
+    pub fn current_shader_bank_mut(&mut self) -> &mut ShaderBank {
+        let n = self.shader_bank_number as usize;
+        &mut self.shader_banks[n]
     }
 }
 
@@ -262,5 +284,22 @@ mod tests {
     fn shared_state_starts_with_no_error() {
         let s = SharedState::new();
         assert!(s.last_error.is_none());
+    }
+
+    #[test]
+    fn shared_state_has_empty_shader_bank_and_v310_profile_by_default() {
+        let s = SharedState::new();
+        assert_eq!(s.shader_banks.len(), 1);
+        assert_eq!(s.shader_banks[0].slots.len(), 10);
+        assert!(s.shader_banks[0].slots.iter().all(Option::is_none));
+        assert_eq!(s.shader_bank_number, 0);
+        assert_eq!(s.shader_focus, 0);
+        assert_eq!(s.gles_profile, crate::render::shader_assembly::GlesProfile::V310);
+    }
+
+    #[test]
+    fn current_shader_bank_returns_active_bank() {
+        let s = SharedState::new();
+        assert_eq!(s.current_shader_bank().slots.len(), 10);
     }
 }
