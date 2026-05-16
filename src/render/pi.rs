@@ -288,6 +288,9 @@ pub struct PiTarget {
 
     // Text overlay
     text: TextOverlay,
+
+    pipeline: crate::render::shader_pipeline::ShaderPipeline,
+    start_time: std::time::Instant,
 }
 
 impl PiTarget {
@@ -336,6 +339,16 @@ impl PiTarget {
 
         let text = unsafe { TextOverlay::new(&ctx.gl)? };
 
+        let shaders_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("shaders");
+        let library = crate::shader::ShaderLibrary::load_dir(&shaders_dir)?;
+        let profile = crate::render::shader_assembly::GlesProfile::default_for_build();
+        let mut pipeline = crate::render::shader_pipeline::ShaderPipeline::new(profile, library);
+        // SAFETY: EGL context made current above.
+        unsafe {
+            pipeline.select(&ctx.gl, "passthrough")?;
+        }
+        let start_time = std::time::Instant::now();
+
         Ok(Self {
             ctx,
             program,
@@ -350,6 +363,8 @@ impl PiTarget {
             scanning: None,
             should_exit: false,
             text,
+            pipeline,
+            start_time,
         })
     }
 
@@ -395,10 +410,22 @@ impl PiTarget {
                 glow::PixelUnpackData::Slice(rgba),
             );
 
+            // Determine current viewport size for the shader pass.
+            let mut vp = [0i32; 4];
+            gl.get_parameter_i32_slice(glow::VIEWPORT, &mut vp);
+            let (sw, sh) = (vp[2].max(1) as u32, vp[3].max(1) as u32);
+            let t = self.start_time.elapsed().as_secs_f32();
+
+            // Run the active shader over the freshly uploaded video frame.
+            let shaded = self
+                .pipeline
+                .apply(gl, self.texture, w, h, sw, sh, t)
+                .unwrap_or(self.texture);
+
             gl.use_program(Some(self.program));
 
             gl.active_texture(glow::TEXTURE0);
-            gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
+            gl.bind_texture(glow::TEXTURE_2D, Some(shaded));
             gl.uniform_1_i32(self.u_tex.as_ref(), 0);
             gl.uniform_1_f32(self.u_alpha.as_ref(), alpha);
 
