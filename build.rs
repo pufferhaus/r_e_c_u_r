@@ -1,5 +1,6 @@
-//! Build script: enforce exactly-one-of {desktop, pi3, pi5} feature set,
-//! and emit a deprecation warning when the legacy `pi` alias is active.
+//! Build script: enforce exactly-one-of {desktop, pi3, pi5} feature set.
+//! Note: the deprecated `pi` alias is collapsed by cargo before build.rs
+//! runs, so we cannot warn on it from here.
 
 fn main() {
     let desktop = cfg!(feature = "desktop");
