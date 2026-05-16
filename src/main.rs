@@ -127,13 +127,45 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
+    let shader_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("shaders");
+    let shader_watcher = recur::shader::ShaderWatcher::start(&shader_dir)
+        .map_err(|e| {
+            tracing::warn!("shader hot-reload disabled: {e}");
+            e
+        })
+        .ok();
+
     let sampler_settings = state.sampler.clone();
     let mut rack = PlayerRack::new(sampler_settings);
     let (shader_tx, shader_rx) = crossbeam_channel::unbounded::<recur::video::rack::ShaderCommand>();
     rack.set_shader_channel(shader_tx);
     let mut grid = TextGrid::new(48, 17);
+
+    let mut root = RootScreen::new();
+    // Populate SHADERS browser names from the initial library so the browser
+    // shows entries without needing to call into Render.
+    {
+        let lib = recur::shader::ShaderLibrary::load_dir_for_profile(
+            &shader_dir,
+            match state.gles_profile {
+                recur::render::shader_assembly::GlesProfile::V100 => recur::shader::GlesVersion::V100,
+                recur::render::shader_assembly::GlesProfile::V310 => recur::shader::GlesVersion::V310,
+            },
+        ).unwrap_or_else(|e| {
+            tracing::warn!("initial shader library load failed: {e}");
+            recur::shader::ShaderLibrary::default()
+        });
+        let names: Vec<String> = lib.names().map(|s| s.to_string()).collect();
+        let filtered = lib.filtered_count();
+        root.set_shader_names(names, filtered);
+    }
+    // NOTE: once root is pushed into the stack it is owned by Box<dyn Screen>
+    // and cannot be accessed directly. Hot-reload events update the shader
+    // compile cache (invalidate/upsert below), but the SHADERS browser name
+    // list is NOT refreshed at runtime — users can restart to pick up new
+    // shader files. Updating names via hot-reload is out of scope for Task 16.
     let mut stack = ScreenStack::new();
-    stack.push(Box::new(RootScreen::new()));
+    stack.push(Box::new(root));
 
     let keymap = Keymap::load(&args.keymap).unwrap_or_else(|e| {
         error!("keymap.toml: {e}; using empty bindings");
@@ -230,6 +262,38 @@ fn main() -> anyhow::Result<()> {
                     }
                 }
                 ShaderCommand::Clear => render.clear_shader(),
+            }
+        }
+
+        // Drain shader hot-reload events; invalidate and upsert into the pipeline.
+        // Browser name list is NOT updated at runtime (see comment above stack setup).
+        if let Some(watcher) = shader_watcher.as_ref() {
+            for ev in watcher.try_drain() {
+                let recur::shader::ShaderEvent::Dirty(name) = ev;
+                // Re-read library entry from disk; on failure, keep the cached one.
+                let shader_path = shader_dir.join(format!("{name}.glsl"));
+                let meta_path = shader_dir.join(format!("{name}.toml"));
+                match (
+                    std::fs::read_to_string(&shader_path),
+                    std::fs::read_to_string(&meta_path),
+                ) {
+                    (Ok(body), Ok(meta_src)) => {
+                        match recur::shader::ShaderMeta::parse(&meta_src, &meta_path.display().to_string()) {
+                            Ok(meta) => {
+                                let shader = recur::shader::LoadedShader {
+                                    meta,
+                                    fragment_body: body,
+                                    source_path: shader_path,
+                                };
+                                render.invalidate_shader(&name);
+                                render.upsert_shader(&name, shader);
+                                tracing::info!("hot-reloaded shader: {name}");
+                            }
+                            Err(e) => tracing::warn!("hot-reload {name} meta parse failed: {e}"),
+                        }
+                    }
+                    _ => tracing::debug!("hot-reload {name}: file gone or unreadable, skipping"),
+                }
             }
         }
 
