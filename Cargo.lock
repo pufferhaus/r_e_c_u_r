@@ -2148,6 +2148,7 @@ dependencies = [
  "anyhow",
  "bytemuck",
  "clap",
+ "crossbeam-channel",
  "drm 0.12.0",
  "embedded-graphics",
  "evdev",
