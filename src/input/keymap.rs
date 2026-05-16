@@ -250,5 +250,9 @@ mod tests {
         assert_eq!(km.lookup("KeyB"), Some(Action::EnterMode(DisplayMode::Browser)));
         assert_eq!(km.lookup("Escape"), Some(Action::Back));
         assert_eq!(km.lookup("ShiftLeft"), Some(Action::ToggleFunction));
+        assert_eq!(km.lookup("KeyH"), Some(Action::EnterMode(DisplayMode::Shaders)));
+        assert_eq!(km.lookup("KeyK"), Some(Action::EnterMode(DisplayMode::ShdrBnk)));
+        assert_eq!(km.lookup("F1"), Some(Action::TriggerShaderSlot(0)));
+        assert_eq!(km.lookup("F10"), Some(Action::TriggerShaderSlot(9)));
     }
 }
