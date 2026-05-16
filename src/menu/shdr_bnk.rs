@@ -41,11 +41,12 @@ impl Screen for ShdrBnkBody {
             Action::NavUp => self.selected = self.selected.saturating_sub(1),
             Action::NavDown => self.selected = (self.selected + 1).min(9),
             Action::Enter => {
-                // Enter on a filled slot ⇒ Trigger; on empty ⇒ no-op (mapping
-                // happens via SelectShaderSlot from SHADERS browser).
+                // Enter on a filled slot ⇒ return TriggerShaderSlot so the
+                // pipeline activates (not just state.shader_active_slot).
+                // Mapping happens via SelectShaderSlot from SHADERS browser.
                 let n = self.selected as usize;
                 if state.current_shader_bank().slots.get(n).and_then(|o| o.as_ref()).is_some() {
-                    state.shader_active_slot = Some(n as u8);
+                    return ScreenResult::Action(Action::TriggerShaderSlot(n as u8));
                 }
             }
             _ => {}
@@ -72,7 +73,7 @@ mod tests {
     }
 
     #[test]
-    fn enter_on_filled_slot_sets_active() {
+    fn enter_on_filled_slot_returns_trigger_action() {
         let mut s = SharedState::new();
         s.current_shader_bank_mut().slots[3] = Some(ShaderSlot {
             shader: "color_shift".into(),
@@ -80,8 +81,11 @@ mod tests {
         });
         let mut b = ShdrBnkBody::new();
         for _ in 0..3 { b.handle(Action::NavDown, &mut s); }
-        b.handle(Action::Enter, &mut s);
-        assert_eq!(s.shader_active_slot, Some(3));
+        let result = b.handle(Action::Enter, &mut s);
+        match result {
+            ScreenResult::Action(Action::TriggerShaderSlot(3)) => (),
+            _ => panic!("expected ScreenResult::Action(TriggerShaderSlot(3))"),
+        }
     }
 
     #[test]
