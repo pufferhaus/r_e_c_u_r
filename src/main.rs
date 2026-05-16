@@ -96,8 +96,7 @@ fn main() -> anyhow::Result<()> {
     state.sampler = settings;
     state.paths_to_browser = paths;
 
-    let profile = args.gles_profile.to_profile();
-    state.gles_profile = profile;
+    state.gles_profile = args.gles_profile.to_profile();
 
     #[cfg(feature = "pi3")]
     {
@@ -111,6 +110,17 @@ fn main() -> anyhow::Result<()> {
         if args.gles_profile == GlesProfileArg::V100 {
             tracing::warn!("--gles-profile v100 ignored on pi5 build; forcing V310");
             state.gles_profile = recur::render::shader_assembly::GlesProfile::V310;
+        }
+    }
+    // Desktop OpenGL 3.0 contexts (e.g. macOS) reject `#version 310 es`; clamp
+    // to V100 until a GLES 3.1 desktop context is in place.
+    #[cfg(all(feature = "desktop", not(any(feature = "pi3", feature = "pi5"))))]
+    {
+        if args.gles_profile == GlesProfileArg::V310 {
+            tracing::warn!(
+                "--gles-profile v310 currently unsupported on desktop builds (context is desktop GL 3.0); forcing V100"
+            );
+            state.gles_profile = recur::render::shader_assembly::GlesProfile::V100;
         }
     }
 
