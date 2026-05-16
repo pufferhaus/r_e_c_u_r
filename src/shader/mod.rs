@@ -6,3 +6,7 @@
 //! - audio routing fields parsed but ignored until recur ships audio capture
 
 pub mod meta;
+pub mod params;
+
+pub use meta::{AudioRoute, Curve, GlesVersion, ParamDef, ShaderMeta};
+pub use params::ParamMap;
