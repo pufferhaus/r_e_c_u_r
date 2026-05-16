@@ -1,4 +1,4 @@
-#![cfg(all(feature = "pi", target_os = "linux"))]
+#![cfg(all(feature = "pi-base", target_os = "linux"))]
 
 //! Raspberry Pi composite-output backend via DRM/KMS + GBM + EGL.
 //!
