@@ -45,7 +45,19 @@ libc = { version = "0.2", optional = true }
 [features]
 default = ["desktop"]
 desktop = ["dep:winit", "dep:glutin", "dep:glutin-winit", "dep:raw-window-handle", "dep:softbuffer"]
-pi = ["dep:khronos-egl", "dep:gbm", "dep:drm", "dep:evdev", "dep:memmap2", "dep:libc"]
+
+# Shared Pi userland (DRM/KMS, EGL, evdev). Always pulled in by pi3 or pi5.
+pi-base = ["dep:khronos-egl", "dep:gbm", "dep:drm", "dep:evdev", "dep:memmap2", "dep:libc"]
+
+# Baseline Pi target: VideoCore IV, GLES 2.0 / GLSL ES 1.00 (Pi 3 B+).
+pi3 = ["pi-base"]
+
+# Enhanced Pi target: VideoCore VII, GLES 3.1 / GLSL ES 3.10 (Pi 5).
+pi5 = ["pi-base"]
+
+# Deprecated alias: `pi` was the original Pi 3 B+ feature. Maps to pi3 for one
+# release. Remove after 0.2.0. build.rs prints a warning when this is active.
+pi = ["pi3"]
 
 [dev-dependencies]
 pretty_assertions = "1"
