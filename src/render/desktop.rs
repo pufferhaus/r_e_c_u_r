@@ -47,6 +47,9 @@ pub struct WinitGlTarget {
 
     // Text overlay (menus rendered on top of the video layer)
     text: TextOverlay,
+
+    pipeline: crate::render::shader_pipeline::ShaderPipeline,
+    start_time: std::time::Instant,
 }
 
 impl WinitGlTarget {
@@ -177,6 +180,22 @@ impl WinitGlTarget {
         // Build text overlay (atlas texture + dynamic VBO + shader)
         let text = unsafe { TextOverlay::new(&gl)? };
 
+        let shaders_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("shaders");
+        // Desktop OpenGL (macOS) accepts only GLSL ES 1.00 (#version 100).
+        // default_for_build() returns V310 for desktop but that is GLES-only syntax.
+        // Use V100 explicitly; sub-plan B will add a --gles-profile CLI override.
+        let profile = crate::render::shader_assembly::GlesProfile::V100;
+        let library = crate::shader::ShaderLibrary::load_dir_for_profile(
+            &shaders_dir,
+            crate::shader::GlesVersion::V100,
+        )?;
+        let mut pipeline = crate::render::shader_pipeline::ShaderPipeline::new(profile, library);
+        // SAFETY: GL context made current above (gl_context is .make_current()-ed).
+        unsafe {
+            pipeline.select(&gl, "passthrough")?;
+        }
+        let start_time = std::time::Instant::now();
+
         Ok(Self {
             gl,
             surface,
@@ -194,6 +213,8 @@ impl WinitGlTarget {
             pos_loc,
             uv_loc,
             text,
+            pipeline,
+            start_time,
         })
     }
 
@@ -288,11 +309,23 @@ impl WinitGlTarget {
                 glow::PixelUnpackData::Slice(rgba),
             );
 
+            // Determine current viewport size for the shader pass.
+            let mut vp = [0i32; 4];
+            gl.get_parameter_i32_slice(glow::VIEWPORT, &mut vp);
+            let (sw, sh) = (vp[2].max(1) as u32, vp[3].max(1) as u32);
+            let t = self.start_time.elapsed().as_secs_f32();
+
+            // Run the active shader over the freshly uploaded video frame.
+            let shaded = self
+                .pipeline
+                .apply(gl, self.texture, w, h, sw, sh, t)
+                .unwrap_or(self.texture);
+
             gl.use_program(Some(self.program));
 
             // Bind texture to unit 0
             gl.active_texture(glow::TEXTURE0);
-            gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
+            gl.bind_texture(glow::TEXTURE_2D, Some(shaded));
             gl.uniform_1_i32(self.u_tex.as_ref(), 0);
 
             // Set alpha
