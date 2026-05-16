@@ -284,6 +284,16 @@ impl ShaderPipeline {
         self.vbo = Some(vbo);
     }
 
+    #[cfg(test)]
+    pub fn active_name(&self) -> Option<&str> {
+        self.active.as_deref()
+    }
+
+    #[cfg(test)]
+    pub fn set_active_for_test(&mut self, name: &str) {
+        self.active = Some(name.to_string());
+    }
+
     unsafe fn cache_uniforms(gl: &glow::Context, program: GlProgram) -> CachedProgram {
         let lookup = |name: &str| gl.get_uniform_location(program, name);
         let u_params = std::array::from_fn(|i| lookup(&format!("u_param{i}")));
@@ -354,9 +364,9 @@ mod tests {
     #[test]
     fn clear_active_drops_selection() {
         let mut p = ShaderPipeline::new(GlesProfile::V100, ShaderLibrary::default());
-        p.pulse_trigger();
+        p.set_active_for_test("foo");
+        assert_eq!(p.active_name(), Some("foo"));
         p.clear_active();
-        // active is private — but tick() should still work without panic.
-        p.tick(0.1);
+        assert_eq!(p.active_name(), None);
     }
 }

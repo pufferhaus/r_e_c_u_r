@@ -513,8 +513,12 @@ impl PiTarget {
     }
 
     pub fn select_shader(&mut self, name: &str, params: [f32; 8]) -> anyhow::Result<()> {
+        unsafe {
+            self.pipeline.select(&self.ctx.gl, name)
+                .map_err(|e| anyhow::anyhow!("select_shader {name}: {e}"))?;
+        }
         self.pipeline.set_params(params);
-        unsafe { self.pipeline.select(&self.ctx.gl, name).map_err(|e| anyhow::anyhow!("select_shader {name}: {e}")) }
+        Ok(())
     }
 
     pub fn clear_shader(&mut self) {
