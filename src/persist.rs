@@ -245,4 +245,124 @@ mod tests {
         let real = tmp.path().join("banks.toml");
         assert!(real.exists());
     }
+
+    // --- shader_banks tests ---
+
+    use crate::shader::{ShaderBank, ShaderSlot};
+
+    fn sslot(name: &str) -> ShaderSlot {
+        ShaderSlot {
+            shader: name.to_string(),
+            params: [0.1, 0.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        }
+    }
+
+    #[test]
+    fn shader_banks_load_default_when_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let got = load_shader_banks(tmp.path()).unwrap();
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].slots.len(), 10);
+        assert!(got[0].slots.iter().all(Option::is_none));
+    }
+
+    #[test]
+    fn shader_banks_roundtrip_sparse_slots() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut b = ShaderBank::empty();
+        b.slots[0] = Some(sslot("color_shift"));
+        b.slots[4] = Some(sslot("pixelate"));
+        save_shader_banks(tmp.path(), &[b.clone()]).unwrap();
+        let got = load_shader_banks(tmp.path()).unwrap();
+        assert_eq!(got, vec![b]);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Shader bank persistence
+// ---------------------------------------------------------------------------
+
+use crate::shader::{ShaderBank, ShaderSlot, SHADER_SLOTS_PER_BANK};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ShaderSlotEntry {
+    index: usize,
+    #[serde(flatten)]
+    slot: ShaderSlot,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ShaderBankWire {
+    #[serde(default)]
+    slots: Vec<ShaderSlotEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ShaderBanksFileWire {
+    #[serde(default)]
+    banks: Vec<ShaderBankWire>,
+}
+
+fn shader_bank_to_wire(bank: &ShaderBank) -> ShaderBankWire {
+    let slots = bank
+        .slots
+        .iter()
+        .enumerate()
+        .filter_map(|(i, s)| {
+            s.as_ref().map(|slot| ShaderSlotEntry {
+                index: i,
+                slot: slot.clone(),
+            })
+        })
+        .collect();
+    ShaderBankWire { slots }
+}
+
+fn shader_wire_to_bank(wire: ShaderBankWire, file: &str) -> Result<ShaderBank> {
+    let mut bank = ShaderBank::empty();
+    for entry in wire.slots {
+        if entry.index >= SHADER_SLOTS_PER_BANK {
+            return Err(Error::Other(format!(
+                "{}: shader slot index {} out of range (max {})",
+                file,
+                entry.index,
+                SHADER_SLOTS_PER_BANK - 1
+            )));
+        }
+        bank.slots[entry.index] = Some(entry.slot);
+    }
+    Ok(bank)
+}
+
+pub fn load_shader_banks(state_dir: &Path) -> Result<Vec<ShaderBank>> {
+    let p = state_dir.join("shader_banks.toml");
+    if !p.exists() {
+        return Ok(vec![ShaderBank::empty()]);
+    }
+    let s = std::fs::read_to_string(&p)?;
+    let file_str = p.display().to_string();
+    let wire: ShaderBanksFileWire = toml::from_str(&s).map_err(|e| Error::TomlParse {
+        file: file_str.clone(),
+        source: e,
+    })?;
+    if wire.banks.is_empty() {
+        return Ok(vec![ShaderBank::empty()]);
+    }
+    wire.banks
+        .into_iter()
+        .map(|bw| shader_wire_to_bank(bw, &file_str))
+        .collect()
+}
+
+pub fn save_shader_banks(state_dir: &Path, banks: &[ShaderBank]) -> Result<()> {
+    let p = state_dir.join("shader_banks.toml");
+    let wire = ShaderBanksFileWire {
+        banks: banks.iter().map(shader_bank_to_wire).collect(),
+    };
+    let s = toml::to_string_pretty(&wire).map_err(|e| Error::TomlSerialize {
+        file: p.display().to_string(),
+        source: e,
+    })?;
+    write_atomic(&p, &s)?;
+    Ok(())
 }
