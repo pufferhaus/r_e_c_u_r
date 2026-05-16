@@ -1,18 +1,25 @@
 //! Always-on chrome screen. Renders the title, transport banner, status row,
 //! mode tabs, column headers, and footer. Delegates the body region to one
-//! of BrowserBody / SamplerBody / SettingsBody.
+//! of BrowserBody / SamplerBody / SettingsBody / ShadersBody / ShdrBnkBody.
 
 use crate::action::Action;
-use crate::state::{DisplayMode, SharedState};
+use crate::render::shader_assembly::GlesProfile;
+use crate::state::{ControlMode, DisplayMode, SharedState};
 use crate::status::grid::TextGrid;
 use crate::ui::{Screen, ScreenResult};
 
-use super::{browser::BrowserBody, sampler::SamplerBody, settings::SettingsBody};
+use super::{
+    browser::BrowserBody, param::ParamBody, sampler::SamplerBody, settings::SettingsBody,
+    shaders::ShadersBody, shdr_bnk::ShdrBnkBody,
+};
 
 pub struct RootScreen {
     browser: BrowserBody,
     sampler: SamplerBody,
     settings: SettingsBody,
+    shaders: ShadersBody,
+    shdr_bnk: ShdrBnkBody,
+    param: ParamBody,
 }
 
 impl RootScreen {
@@ -21,7 +28,16 @@ impl RootScreen {
             browser: BrowserBody::new(),
             sampler: SamplerBody::new(),
             settings: SettingsBody::new(),
+            shaders: ShadersBody::new(Vec::new(), 0),
+            shdr_bnk: ShdrBnkBody::new(),
+            param: ParamBody::new(),
         }
+    }
+
+    /// Refresh the SHADERS browser list after a shader library reload.
+    /// Called from `main.rs` via Task 16; method is wired here in Task 10.
+    pub fn set_shader_names(&mut self, names: Vec<String>, filtered: usize) {
+        self.shaders = ShadersBody::new(names, filtered);
     }
 
     fn render_chrome(&self, state: &SharedState, grid: &mut TextGrid) {
@@ -43,13 +59,16 @@ impl RootScreen {
         grid.write_row(3, &body_title(state));
 
         // Row 16 — footer (status / message)
-        let footer = if let Some(err) = state.last_error.as_deref() {
+        let mut footer = if let Some(err) = state.last_error.as_deref() {
             format!("ERR: {}", err.chars().take(40).collect::<String>())
         } else if state.function_on {
             "               < FUNCTION KEY ON >".to_string()
         } else {
             format!("CONTROL: {:?}", state.control_mode)
         };
+        if state.gles_profile == GlesProfile::V100 {
+            footer.push_str(" [profile: pi3]");
+        }
         grid.write_row(15, &footer);
     }
 }
@@ -61,16 +80,26 @@ impl Screen for RootScreen {
             DisplayMode::Browser => self.browser.render(state, grid),
             DisplayMode::Sampler => self.sampler.render(state, grid),
             DisplayMode::Settings => self.settings.render(state, grid),
-            _ => grid.write_row(10, "      (not yet implemented in Phase 1)"),
+            DisplayMode::Shaders => self.shaders.render(state, grid),
+            DisplayMode::ShdrBnk => self.shdr_bnk.render(state, grid),
+            DisplayMode::Frames => grid.write_row(10, "      (detour — Phase 3)"),
+        }
+        if state.control_mode == ControlMode::ShaderParam {
+            self.param.render(state, grid);
         }
     }
 
     fn handle(&mut self, action: Action, state: &mut SharedState) -> ScreenResult {
+        if state.control_mode == ControlMode::ShaderParam {
+            return self.param.handle(action, state);
+        }
         match state.display_mode {
             DisplayMode::Browser => self.browser.handle(action, state),
             DisplayMode::Sampler => self.sampler.handle(action, state),
             DisplayMode::Settings => self.settings.handle(action, state),
-            _ => ScreenResult::Continue,
+            DisplayMode::Shaders => self.shaders.handle(action, state),
+            DisplayMode::ShdrBnk => self.shdr_bnk.handle(action, state),
+            DisplayMode::Frames => ScreenResult::Continue,
         }
     }
 }
@@ -115,6 +144,37 @@ mod tests {
         st.display_mode = DisplayMode::Sampler;
         let t = body_title(&st);
         assert!(t.contains("[sampler"));
+    }
+
+    #[test]
+    fn footer_shows_gles_profile_indicator_when_v100() {
+        use crate::render::shader_assembly::GlesProfile;
+        let mut st = SharedState::new();
+        st.gles_profile = GlesProfile::V100;
+        st.display_mode = DisplayMode::Sampler;
+        let root = RootScreen::new();
+        let mut grid = crate::status::grid::TextGrid::new(48, 17);
+        root.render(&st, &mut grid);
+        let row15: String = (0..48).map(|c| grid.at(15, c).ch).collect();
+        assert!(row15.contains("profile: pi3") || row15.contains("v100"),
+            "footer should call out pi3 compat mode, got: {row15}");
+    }
+
+    #[test]
+    fn shdr_bnk_mode_renders_shdr_bnk_body() {
+        use crate::shader::ShaderSlot;
+        let mut st = SharedState::new();
+        st.display_mode = DisplayMode::ShdrBnk;
+        st.current_shader_bank_mut().slots[2] = Some(ShaderSlot {
+            shader: "kaleidoscope".into(),
+            params: [0.0; 8],
+        });
+        let root = RootScreen::new();
+        let mut grid = crate::status::grid::TextGrid::new(48, 17);
+        root.render(&st, &mut grid);
+        // Row 7 (slot 2) should contain the shader name.
+        let row7: String = (0..48).map(|c| grid.at(7, c).ch).collect();
+        assert!(row7.contains("kaleidoscope"), "got: {row7}");
     }
 
     #[test]
