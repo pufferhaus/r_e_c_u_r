@@ -34,6 +34,26 @@ pub trait RackHandle {
     /// PARAM screen for live-edit while a shader is already active.
     fn set_shader_params(&mut self, params: [f32; 8]);
     fn detour_scrub_by(&mut self, delta: i32);
+
+    /// Phase 4b — recording. Attach a record bin to the player whose loaded
+    /// slot's source is `Capture(d)` with `d.path == device_path`. The
+    /// `file_path` is the absolute output path. Returns `Err` if no matching
+    /// player is found or the bin attach fails.
+    fn start_recording(
+        &mut self,
+        device_path: &str,
+        file_path: &std::path::Path,
+        target: crate::capture::recording::Target,
+    ) -> crate::error::Result<()>;
+
+    /// Phase 4b — signal stop on whichever player is recording. Sends EOS to
+    /// the record bin and arranges for the finalized file path to be pushed
+    /// onto `drain_finalized()` once the EOS round-trip completes.
+    fn stop_recording(&mut self);
+
+    /// Phase 4b — pop any newly-finalized file paths since the last call.
+    /// Main loop drains these and calls `auto_import`.
+    fn drain_finalized(&mut self) -> Vec<std::path::PathBuf>;
 }
 
 pub fn apply<R: RackHandle>(action: Action, state: &mut SharedState, rack: &mut R) {
@@ -334,6 +354,9 @@ mod tests {
         shader_cleared: u32,
         shader_param_pushes: Vec<[f32; 8]>,
         detour_scrubs: Vec<i32>,
+        record_starts: u32,
+        record_stops: u32,
+        finalized: Vec<std::path::PathBuf>,
     }
 
     impl RackHandle for SpyRack {
@@ -366,6 +389,21 @@ mod tests {
         }
         fn detour_scrub_by(&mut self, delta: i32) {
             self.detour_scrubs.push(delta);
+        }
+        fn start_recording(
+            &mut self,
+            _device_path: &str,
+            _file_path: &std::path::Path,
+            _target: crate::capture::recording::Target,
+        ) -> crate::error::Result<()> {
+            self.record_starts += 1;
+            Ok(())
+        }
+        fn stop_recording(&mut self) {
+            self.record_stops += 1;
+        }
+        fn drain_finalized(&mut self) -> Vec<std::path::PathBuf> {
+            std::mem::take(&mut self.finalized)
         }
     }
 
@@ -729,5 +767,19 @@ mod tests {
                 _ => panic!("expected Capture source"),
             }
         }
+    }
+
+    #[test]
+    fn rack_handle_has_record_methods() {
+        // Trait compiles with the new methods. Real test of the wiring is in Task 9.
+        let mut r = SpyRack::default();
+        let target = crate::capture::recording::Target::current();
+        let ok = r.start_recording("/dev/video0", std::path::Path::new("/tmp/r.mp4"), target);
+        assert!(ok.is_ok());
+        assert_eq!(r.record_starts, 1);
+        r.stop_recording();
+        assert_eq!(r.record_stops, 1);
+        let finalized: Vec<std::path::PathBuf> = r.drain_finalized();
+        assert!(finalized.is_empty());
     }
 }

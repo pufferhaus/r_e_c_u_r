@@ -239,6 +239,24 @@ impl RackHandle for PlayerRack {
             let _ = tx.send(DetourCommand::ScrubBy(delta));
         }
     }
+
+    fn start_recording(
+        &mut self,
+        _device_path: &str,
+        _file_path: &std::path::Path,
+        _target: crate::capture::recording::Target,
+    ) -> crate::error::Result<()> {
+        // Real implementation lands in Task 11 (gst-side hot-swap).
+        Ok(())
+    }
+
+    fn stop_recording(&mut self) {
+        // Real implementation in Task 11.
+    }
+
+    fn drain_finalized(&mut self) -> Vec<std::path::PathBuf> {
+        Vec::new()
+    }
 }
 
 #[cfg(test)]
