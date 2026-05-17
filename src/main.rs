@@ -308,7 +308,7 @@ fn main() -> anyhow::Result<()> {
         // Drain probe results into the cache.
         for res in probe_res_rx.try_iter() {
             let reclassified = recur::video::reclassify_for_profile(res.status, state.gles_profile);
-            state.probe_cache.insert(&res.path, res.mtime, reclassified);
+            state.probe_cache.insert_if_current(&res.path, res.mtime, reclassified);
         }
 
         // 3. Re-render text grid

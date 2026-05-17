@@ -77,6 +77,20 @@ impl ProbeCache {
         self.entries.insert(path.to_path_buf(), (mtime, status));
     }
 
+    /// Insert only if the stored entry's mtime matches `mtime` or the cache
+    /// has no entry for this path yet. Discards a stale probe result that
+    /// arrived after the file was rewritten (newer probe already in flight).
+    /// Returns true if the insert happened.
+    pub fn insert_if_current(&mut self, path: &Path, mtime: u64, status: CodecStatus) -> bool {
+        match self.entries.get(path) {
+            Some((m, _)) if *m != mtime => false, // newer entry — discard
+            _ => {
+                self.entries.insert(path.to_path_buf(), (mtime, status));
+                true
+            }
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.entries.len()
     }
@@ -194,14 +208,47 @@ fn probe_one(disc: &gst_pbutils::Discoverer, path: &Path) -> CodecStatus {
 }
 
 fn url_from_path(p: &Path) -> Option<String> {
-    let canon = std::fs::canonicalize(p).ok()?;
-    Some(format!("file://{}", canon.display()))
+    if p.is_absolute() {
+        Some(format!("file://{}", p.display()))
+    } else {
+        let canon = std::fs::canonicalize(p).ok()?;
+        Some(format!("file://{}", canon.display()))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    #[test]
+    fn insert_if_current_discards_stale_mtime() {
+        let mut cache = ProbeCache::default();
+        let p = PathBuf::from("/file.mp4");
+        cache.insert(&p, 200, CodecStatus::Pending);
+        // Stale probe (mtime 100) lands after the cache was updated to mtime 200.
+        let inserted = cache.insert_if_current(&p, 100, CodecStatus::Supported("h264".into()));
+        assert!(!inserted, "stale insert must be rejected");
+        assert_eq!(cache.get(&p), Some(CodecStatus::Pending));
+    }
+
+    #[test]
+    fn insert_if_current_accepts_matching_mtime() {
+        let mut cache = ProbeCache::default();
+        let p = PathBuf::from("/file.mp4");
+        cache.insert(&p, 100, CodecStatus::Pending);
+        let inserted = cache.insert_if_current(&p, 100, CodecStatus::Supported("h264".into()));
+        assert!(inserted);
+        assert_eq!(cache.get(&p), Some(CodecStatus::Supported("h264".into())));
+    }
+
+    #[test]
+    fn insert_if_current_accepts_first_entry() {
+        let mut cache = ProbeCache::default();
+        let p = PathBuf::from("/file.mp4");
+        let inserted = cache.insert_if_current(&p, 100, CodecStatus::Supported("h264".into()));
+        assert!(inserted);
+    }
 
     #[test]
     fn unsupported_lists_match_target_table() {

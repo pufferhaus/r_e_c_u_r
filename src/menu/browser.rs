@@ -78,18 +78,15 @@ impl Screen for BrowserBody {
                 if row.is_file { "-" } else { "x" }.to_string()
             });
             let truncated: String = row.display.chars().take(38).collect();
+            let cached = state.probe_cache.get(&row.probe_key);
             // Probe-status marker appended after the slot column.
-            let marker = match state.probe_cache.get(&row.probe_key) {
+            let marker = match &cached {
                 Some(CodecStatus::Pending) => " […]",
                 Some(CodecStatus::Unsupported(_)) => " [X]",
                 _ => "",
             };
             grid.write_row(row_idx, &format!("{:<38} {:<5}{}", truncated, slot, marker));
-            let is_unsupported = matches!(
-                state.probe_cache.get(&row.probe_key),
-                Some(CodecStatus::Unsupported(_))
-            );
-            if is_unsupported {
+            if matches!(cached, Some(CodecStatus::Unsupported(_))) {
                 grid.dim_row(row_idx);
             }
             if abs == self.selected {
@@ -110,14 +107,12 @@ impl Screen for BrowserBody {
                 if self.selected < self.top {
                     self.top = self.selected;
                 }
-                self.maybe_enqueue_probe(state, &rows);
             }
             Action::NavDown => {
                 self.selected = (self.selected + 1).min(n - 1);
                 if self.selected >= self.top + VIEW_ROWS {
                     self.top = self.selected + 1 - VIEW_ROWS;
                 }
-                self.maybe_enqueue_probe(state, &rows);
             }
             Action::Enter => {
                 let row = rows[self.selected].clone();
@@ -152,6 +147,10 @@ impl Screen for BrowserBody {
             }
             _ => {}
         }
+        // Lazy probe enqueue: any handled action triggers a check, so the very
+        // first action the user takes (whether navigation, Enter, or a no-op key)
+        // kicks off the probe for the focused row.
+        self.maybe_enqueue_probe(state, &rows);
         ScreenResult::Continue
     }
 }
@@ -237,6 +236,23 @@ mod tests {
         let err = st.last_error.as_deref().unwrap_or("");
         assert!(err.contains("hevc"), "got: {err:?}");
         assert!(err.contains("cannot map"), "got: {err:?}");
+    }
+
+    #[test]
+    fn any_action_enqueues_probe_for_focused_file() {
+        use crate::video::ProbeRequest;
+        let tmp = tempfile::tempdir().unwrap();
+        fs::write(tmp.path().join("a.mp4"), b"").unwrap();
+
+        let (tx, rx) = crossbeam_channel::unbounded::<ProbeRequest>();
+        let mut st = SharedState::new();
+        st.paths_to_browser = vec![tmp.path().to_path_buf()];
+        st.probe_tx = Some(tx);
+
+        let mut b = BrowserBody::new();
+        // First action the user takes — even Back, not nav — triggers a probe.
+        b.handle(Action::Back, &mut st);
+        assert!(rx.try_recv().is_ok(), "first action should enqueue probe for focused row");
     }
 
     #[test]

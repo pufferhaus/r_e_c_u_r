@@ -370,7 +370,10 @@ impl TextOverlay {
                     (FG, BG)
                 };
                 // ATTR_DIM mixes fg toward bg by 60% → glyph reads at ~40% brightness.
-                let (fg, bg) = if cell.attr & ATTR_DIM != 0 {
+                // Skip dim when ATTR_INVERSE is also set: the inversion already
+                // distinguishes the selected row; combining both would produce
+                // near-zero contrast (dark-amber-on-amber).
+                let (fg, bg) = if cell.attr & ATTR_DIM != 0 && cell.attr & ATTR_INVERSE == 0 {
                     let mix = |a: [f32; 3], b: [f32; 3]| {
                         [a[0] * 0.4 + b[0] * 0.6, a[1] * 0.4 + b[1] * 0.6, a[2] * 0.4 + b[2] * 0.6]
                     };
