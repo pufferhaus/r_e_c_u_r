@@ -408,14 +408,8 @@ fn cycle_setting(state: &mut SharedState, id: SettingId) {
     }
 }
 
-fn today_yyyymmdd() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    let days = secs / 86400;
-    // Civil-date conversion from Unix epoch (Howard Hinnant algo, simplified).
+/// Pure Howard-Hinnant civil-date conversion: Unix-epoch days → "YYYY-MM-DD".
+fn days_to_yyyymmdd(days: u64) -> String {
     let z = days as i64 + 719468;
     let era = if z >= 0 { z } else { z - 146096 } / 146097;
     let doe = (z - era * 146097) as u64;
@@ -427,6 +421,15 @@ fn today_yyyymmdd() -> String {
     let m = if mp < 10 { mp + 3 } else { mp - 9 };
     let y = if m <= 2 { y + 1 } else { y };
     format!("{:04}-{:02}-{:02}", y, m, d)
+}
+
+fn today_yyyymmdd() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    days_to_yyyymmdd(secs / 86400)
 }
 
 #[cfg(test)]
@@ -947,6 +950,29 @@ mod tests {
         assert_eq!(r.record_stops, 1);
         let finalized: Vec<std::path::PathBuf> = r.drain_finalized();
         assert!(finalized.is_empty());
+    }
+
+    #[test]
+    fn days_to_yyyymmdd_epoch_is_1970_01_01() {
+        assert_eq!(super::days_to_yyyymmdd(0), "1970-01-01");
+    }
+
+    #[test]
+    fn days_to_yyyymmdd_today_2026_05_17() {
+        // 2026-05-17 = day 20590 since Unix epoch.
+        assert_eq!(super::days_to_yyyymmdd(20590), "2026-05-17");
+    }
+
+    #[test]
+    fn days_to_yyyymmdd_year_rollover_2025_12_31() {
+        // 2025-12-31 = day 20453.
+        assert_eq!(super::days_to_yyyymmdd(20453), "2025-12-31");
+    }
+
+    #[test]
+    fn days_to_yyyymmdd_leap_day_2024_02_29() {
+        // 2024-02-29 = day 19782.
+        assert_eq!(super::days_to_yyyymmdd(19782), "2024-02-29");
     }
 
     #[test]
