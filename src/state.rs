@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use crate::render::shader_assembly::GlesProfile;
 use crate::shader::ShaderBank;
+use crate::video::{ProbeCache, ProbeRequest};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Slot {
@@ -174,6 +175,12 @@ pub struct SharedState {
     pub shader_pending_select: Option<String>,
     /// Currently triggered shader-bank slot (0..=9). None = bypass.
     pub shader_active_slot: Option<u8>,
+
+    // Codec probe (Phase 2 sub-plan C)
+    /// Codec-probe cache, populated by main.rs from the worker channel.
+    pub probe_cache: ProbeCache,
+    /// Sender to the probe worker. None outside main (e.g. in tests).
+    pub probe_tx: Option<crossbeam_channel::Sender<ProbeRequest>>,
 }
 
 impl SharedState {
@@ -195,6 +202,8 @@ impl SharedState {
             gles_profile: GlesProfile::default_for_build(),
             shader_pending_select: None,
             shader_active_slot: None,
+            probe_cache: ProbeCache::default(),
+            probe_tx: None,
         }
     }
 
@@ -308,5 +317,12 @@ mod tests {
     fn current_shader_bank_returns_active_bank() {
         let s = SharedState::new();
         assert_eq!(s.current_shader_bank().slots.len(), 10);
+    }
+
+    #[test]
+    fn shared_state_starts_with_empty_probe_cache_and_no_tx() {
+        let s = SharedState::new();
+        assert!(s.probe_cache.is_empty());
+        assert!(s.probe_tx.is_none());
     }
 }
