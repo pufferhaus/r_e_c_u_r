@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use crate::detour::DetourSettings;
 use crate::render::shader_assembly::GlesProfile;
 use crate::shader::ShaderBank;
 use crate::video::{ProbeCache, ProbeRequest};
@@ -181,6 +182,9 @@ pub struct SharedState {
     pub probe_cache: ProbeCache,
     /// Sender to the probe worker. None outside main (e.g. in tests).
     pub probe_tx: Option<crossbeam_channel::Sender<ProbeRequest>>,
+
+    // Detour (Phase 3)
+    pub detour: DetourSettings,
 }
 
 impl SharedState {
@@ -204,6 +208,7 @@ impl SharedState {
             shader_active_slot: None,
             probe_cache: ProbeCache::default(),
             probe_tx: None,
+            detour: DetourSettings::default(),
         }
     }
 
@@ -324,5 +329,13 @@ mod tests {
         let s = SharedState::new();
         assert!(s.probe_cache.is_empty());
         assert!(s.probe_tx.is_none());
+    }
+
+    #[test]
+    fn shared_state_starts_with_default_detour_settings() {
+        let s = SharedState::new();
+        assert_eq!(s.detour.speed, 1.0);
+        assert!(s.detour.forward);
+        assert!(!s.detour.auto_play);
     }
 }
