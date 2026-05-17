@@ -62,9 +62,11 @@ pub fn build_for_capture(device: &CaptureDevice, w: u32, h: u32) -> Result<Built
 pub(crate) fn capture_pipeline_desc(device: &CaptureDevice, w: u32, h: u32) -> String {
     let source = capture_source_element(device);
     format!(
-        "{source} ! videoconvert ! videoscale ! \
-         video/x-raw,format=RGBA,width={w},height={h} ! \
-         appsink name=sink sync=true max-buffers=2 drop=true emit-signals=false",
+        "{source} ! videoconvert ! tee name=cap_t \
+         cap_t. ! queue ! videoscale ! \
+           video/x-raw,format=RGBA,width={w},height={h} ! \
+           appsink name=sink sync=true max-buffers=2 drop=true emit-signals=false \
+         cap_t. ! queue ! fakesink name=rec_placeholder sync=false"
     )
 }
 
@@ -108,11 +110,14 @@ mod tests {
     }
 
     #[test]
-    fn capture_pipeline_desc_includes_videoscale_and_appsink() {
+    fn capture_pipeline_desc_has_tee_and_appsink_and_fakesink() {
         let d = CaptureDevice { path: "/dev/video0".into(), label: "v4l2:video0".into() };
         let desc = capture_pipeline_desc(&d, 720, 480);
+        assert!(desc.contains("tee name=cap_t"), "missing tee: {desc}");
         assert!(desc.contains("videoscale"));
         assert!(desc.contains("width=720,height=480"));
         assert!(desc.contains("appsink"));
+        // Second branch — placeholder so record bin can replace it later.
+        assert!(desc.contains("fakesink"), "missing placeholder fakesink: {desc}");
     }
 }
