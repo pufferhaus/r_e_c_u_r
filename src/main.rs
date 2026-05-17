@@ -140,10 +140,21 @@ fn main() -> anyhow::Result<()> {
         })
         .ok();
 
+    let detour_budget_bytes = recur::detour::resolved_budget_bytes(
+        cfg.detour.as_ref().and_then(|d| d.ring_budget_mb),
+    );
+    let mut ring = recur::detour::Ring::new(cfg.render.width, cfg.render.height, detour_budget_bytes);
+    info!(
+        "detour: ring capacity = {} frames @ {}x{}",
+        ring.capacity(), cfg.render.width, cfg.render.height,
+    );
+
     let sampler_settings = state.sampler.clone();
     let mut rack = PlayerRack::new(sampler_settings);
     let (shader_tx, shader_rx) = crossbeam_channel::unbounded::<recur::video::rack::ShaderCommand>();
     rack.set_shader_channel(shader_tx);
+    let (detour_tx, detour_rx) = crossbeam_channel::unbounded::<recur::video::rack::DetourCommand>();
+    rack.set_detour_channel(detour_tx);
     let mut grid = TextGrid::new(48, 17);
 
     let mut root = RootScreen::new();
@@ -311,17 +322,60 @@ fn main() -> anyhow::Result<()> {
             state.probe_cache.insert_if_current(&res.path, res.mtime, reclassified);
         }
 
+        // Drain detour commands (scrub, etc).
+        for cmd in detour_rx.try_iter() {
+            use recur::video::rack::DetourCommand;
+            match cmd {
+                DetourCommand::ScrubBy(delta) => {
+                    state.detour.scrub_by(delta, ring.count());
+                }
+            }
+        }
+
+        // Advance auto-play read position when in scrub mode.
+        if state.control_mode == recur::state::ControlMode::DetourScrub {
+            state.detour.tick_auto_play(ring.count());
+        }
+
         // 3. Re-render text grid
         grid.clear();
         if let Some(top) = stack.top() {
             top.render(&state, &mut grid);
         }
 
-        // 4. Pull latest frame from current player and draw.
+        // 4. Pull latest frame from current player.
+        let latest_rgba = rack.current.pull_latest_rgba();
+
+        // Capture into ring iff not scrubbing.
+        if let Some(frame) = &latest_rgba {
+            if state.control_mode != recur::state::ControlMode::DetourScrub {
+                // Only push if the frame matches the configured render size — otherwise
+                // try_push rejects on size mismatch and we silently skip.
+                let _ = ring.try_push(frame.data());
+            }
+        }
+
+        // Refresh FRAMES body stats each frame so the FRAMES display has live data.
+        // Stats are written after the push so the count reflects the current frame.
+        // The grid render already ran above, so these values are visible next frame (1-frame lag).
+        state.frames_stats_count = ring.count();
+        state.frames_stats_capacity = ring.capacity();
+        state.frames_stats_used_mb = ((ring.count() * ring.bytes_per_frame()) / (1024 * 1024)) as u64;
+        state.frames_stats_budget_mb = (detour_budget_bytes / (1024 * 1024)) as u64;
+        state.frames_stats_fps = cfg.render.fps;
+
         render.begin_frame();
-        if let Some(frame) = rack.current.pull_latest_rgba() {
+        if let Some(frame) = latest_rgba.as_ref() {
             render.draw_video_layer(frame.data(), frame.width, frame.height, 1.0);
         }
+
+        // Scrub overlay: blend ring frame on top.
+        if state.control_mode == recur::state::ControlMode::DetourScrub {
+            if let Some(scrub_frame) = ring.get(state.detour.read_position) {
+                render.draw_detour_layer(scrub_frame, ring.width(), ring.height(), state.detour.mix);
+            }
+        }
+
         render.draw_text_grid(&grid);
         render.end_frame();
 
