@@ -15,6 +15,9 @@ pub struct BrowserRow {
     pub is_file: bool,
     /// Depth (0 = root level).
     pub depth: usize,
+    /// Canonical absolute path used as ProbeCache key. Falls back to `path`
+    /// on canonicalize error (broken symlink, missing intermediate).
+    pub probe_key: PathBuf,
 }
 
 /// Walk `roots` producing a flat depth-first row list, expanding only the
@@ -57,11 +60,13 @@ fn walk_recursive(dir: &Path, depth: usize, open: &HashSet<PathBuf>, out: &mut V
         let name = d.file_name().unwrap().to_string_lossy().into_owned();
         let is_open = open.contains(&d);
         let glyph = if is_open { '/' } else { '|' };
+        let probe_key = std::fs::canonicalize(&d).unwrap_or_else(|_| d.clone());
         out.push(BrowserRow {
             display: format!("{}{}{}", indent(depth), name, glyph),
             path: d.clone(),
             is_file: false,
             depth,
+            probe_key,
         });
         if is_open {
             walk_recursive(&d, depth + 1, open, out);
@@ -69,11 +74,13 @@ fn walk_recursive(dir: &Path, depth: usize, open: &HashSet<PathBuf>, out: &mut V
     }
     for f in files {
         let name = f.file_name().unwrap().to_string_lossy().into_owned();
+        let probe_key = std::fs::canonicalize(&f).unwrap_or_else(|_| f.clone());
         out.push(BrowserRow {
             display: format!("{}{}", indent(depth), name),
             path: f,
             is_file: true,
             depth,
+            probe_key,
         });
     }
 }
@@ -145,5 +152,25 @@ mod tests {
         assert_eq!(rows.len(), 2);
         assert!(!rows[0].is_file);
         assert!(rows[1].is_file);
+    }
+
+    #[test]
+    fn browser_row_carries_probe_key_for_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        let f = tmp.path().join("clip.mp4");
+        fs::write(&f, b"").unwrap();
+        let rows = walk_browser(&[tmp.path().to_path_buf()], &HashSet::new());
+        let row = rows.iter().find(|r| r.is_file).unwrap();
+        let canon = std::fs::canonicalize(&f).unwrap();
+        assert_eq!(row.probe_key, canon);
+    }
+
+    #[test]
+    fn browser_row_probe_key_falls_back_to_path_on_canon_error() {
+        let tmp = tempfile::tempdir().unwrap();
+        fs::create_dir(tmp.path().join("sub")).unwrap();
+        let rows = walk_browser(&[tmp.path().to_path_buf()], &HashSet::new());
+        let dir_row = rows.iter().find(|r| !r.is_file).unwrap();
+        assert!(dir_row.probe_key.ends_with("sub") || dir_row.probe_key == dir_row.path);
     }
 }
