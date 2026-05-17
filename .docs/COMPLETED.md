@@ -4,6 +4,7 @@ Rolled-off entries from `Recently Shipped` in [ROADMAP.md](ROADMAP.md). Newest f
 
 ## 2026-05-16
 
+- **Phase 2 sub-plan A — shader infrastructure**: `src/shader/` module, GLES-split preludes, shader_assembly, ShaderPipeline (FBO + compile cache), wired into both render backends, passthrough demo. See `docs/superpowers/specs/2026-05-16-conjur-design.md`.
 - **Dual-target spec**: pi3 + pi5 cargo features, per-shader GLES gating rules, byte-budgeted detour ring rules, desktop dev defaults to pi5 parity. Foundation only — phase-2/3 implementation pending. See `docs/superpowers/specs/2026-05-16-pi5-target-revision-design.md`.
 
 ## 2026-05-12

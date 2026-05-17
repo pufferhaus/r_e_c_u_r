@@ -10,9 +10,9 @@ _(none)_
 
 ## Recently Shipped
 
+- **Phase 3 — detour** (2026-05-16): in-memory frame ring (byte-budgeted: pi3 128 MB, pi5 256 MB, desktop 512 MB; `config.toml` override; 50%-free-RAM ceiling via `sysinfo`). `ControlMode::DetourScrub` mode, FRAMES display body, scrub controls (frame ±1, speed cycle 0.25/0.5/1/2/4×, direction, auto-play, start/end markers, mix 0–100%). Compose layer alpha-blends ring frame over live. GStreamer scales source frames to render resolution so ring captures consistently. See `docs/superpowers/specs/2026-05-16-detour-design.md`.
 - **Phase 2 sub-plan C — conjur codec probe** (2026-05-16): `gstreamer-pbutils` Discoverer worker thread; FILES browser dims unsupported codecs with `[X]` glyph + shows `[…]` while pending; map-to-slot refused with status-line `cannot map: pi3 build does not support hevc`; `ATTR_DIM` wired through TextOverlay. Codec lists per-profile (pi3 blocks hevc/vp9/av1; pi5 accepts all). **Phase 2 complete.**
 - **Phase 2 sub-plan B — conjur UI + persistence** (2026-05-16): SHADERS browser, SHDR_BNK shader bank, `shader_banks.toml`, `--gles-profile` CLI flag, hot-reload via `notify`, 4 starter shaders (color_shift, pixelate, kaleidoscope, rgb_glitch).
-- **Phase 2 sub-plan A — shader infrastructure** (2026-05-16): `src/shader/` module, GLES-split preludes, shader_assembly, ShaderPipeline (FBO + compile cache), wired into both render backends, passthrough demo. See `docs/superpowers/specs/2026-05-16-conjur-design.md`.
 
 ## Design Notes
 
@@ -32,7 +32,7 @@ Each phase = its own design spec + implementation plan + ship cycle.
 |---|---|---|---|
 | 1 | **r_e_c_u_r-core** — file playback, sample bank, loop points, sampler modes, Browser/Sampler/Settings menus, desktop keyboard control | ✅ | `src/video/`, `src/sample/`, `src/menu/`, `src/input/winit_src.rs` |
 | 2 | **conjur** — GLSL shader layer + codec probe. All 3 sub-plans (A: infra, B: UI+persistence, C: codec probe) shipped 2026-05-16 | ✅ | `src/shader/`, `shaders/`, `src/menu/{shaders,shdr_bnk,param}.rs`, `src/video/probe.rs` |
-| 3 | **detour** — in-memory frame ring (~500 frames), scrubbing, speed/direction control | ☐ | `src/detour/` |
+| 3 | **detour** — in-memory frame ring + scrub mode + mix compose. Byte-budgeted ring (per-target defaults; sysinfo ceiling); DetourScrub control mode; FRAMES display body | ✅ | `src/detour/`, `src/menu/frames.rs` |
 | 4 | **captur** — USB v4l2 / CSI live-capture as a video source, slot-mapped | ☐ | `src/video/capture.rs` |
 | 5 | **Pi inputs** — GPIO matrix (`i_n_c_u_r` PCB), USB MIDI, analog ADC over I2C (`pi-base` feature) | ☐ | `src/input/{gpio,midi,adc}.rs` |
 
