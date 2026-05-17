@@ -256,6 +256,9 @@ pub struct SharedState {
     pub frames_stats_used_mb: u64,
     pub frames_stats_budget_mb: u64,
     pub frames_stats_fps: u32,
+
+    // Phase 4b — captur (recording)
+    pub active_recording: Option<crate::capture::recording::ActiveRecording>,
 }
 
 impl SharedState {
@@ -286,6 +289,7 @@ impl SharedState {
             frames_stats_used_mb: 0,
             frames_stats_budget_mb: 0,
             frames_stats_fps: 30,
+            active_recording: None,
         }
     }
 
@@ -414,5 +418,11 @@ mod tests {
         assert_eq!(s.detour.speed, 1.0);
         assert!(s.detour.forward);
         assert!(!s.detour.auto_play);
+    }
+
+    #[test]
+    fn shared_state_starts_with_no_active_recording() {
+        let s = SharedState::new();
+        assert!(s.active_recording.is_none());
     }
 }
