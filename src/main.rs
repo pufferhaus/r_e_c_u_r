@@ -7,7 +7,7 @@ use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
 use recur::action::Action;
-use recur::apply::apply;
+use recur::apply::{apply, RackHandle};
 use recur::config::{self, Config};
 use recur::input::keymap::Keymap;
 use recur::menu::root::RootScreen;
@@ -260,6 +260,13 @@ fn main() -> anyhow::Result<()> {
         // Drain any gst error into shared state for the UI to display.
         if let Some(err) = rack.drain_last_error() {
             state.last_error = Some(err);
+        }
+
+        // Phase 4b — drain any finalized recordings; auto-import each, then clear `active_recording`.
+        let finalized: Vec<std::path::PathBuf> = rack.drain_finalized();
+        for path in finalized {
+            recur::apply::auto_import_recording(&mut state, path);
+            state.active_recording = None;
         }
 
         // Drain shader commands from the rack channel.

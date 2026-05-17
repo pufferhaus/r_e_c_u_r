@@ -408,6 +408,34 @@ fn cycle_setting(state: &mut SharedState, id: SettingId) {
     }
 }
 
+/// Phase 4b — wire a finalized recording file into the first empty slot of
+/// the current bank. Called by the main loop on each finalize event drained
+/// from the rack. If no empty slot is available, leaves the file on disk and
+/// sets `last_error`. Caller is responsible for clearing `active_recording`
+/// before/after invoking this.
+pub fn auto_import_recording(state: &mut SharedState, file_path: std::path::PathBuf) {
+    let Some(idx) = state.current_bank().first_empty() else {
+        let base = file_path
+            .file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "?".into());
+        state.last_error = Some(format!("recording saved: {base} (no empty slot)"));
+        return;
+    };
+    let name = file_path
+        .file_name()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "recording.mp4".into());
+    state.current_bank_mut().slots[idx] = Some(crate::state::Slot {
+        source: crate::state::SourceKind::File(file_path),
+        name,
+        start: -1.0,
+        end: -1.0,
+        length: 0.0,
+        rate: 1.0,
+    });
+}
+
 /// Pure Howard-Hinnant civil-date conversion: Unix-epoch days → "YYYY-MM-DD".
 fn days_to_yyyymmdd(days: u64) -> String {
     let z = days as i64 + 719468;
@@ -950,6 +978,33 @@ mod tests {
         assert_eq!(r.record_stops, 1);
         let finalized: Vec<std::path::PathBuf> = r.drain_finalized();
         assert!(finalized.is_empty());
+    }
+
+    #[test]
+    fn auto_import_recording_populates_first_empty_slot() {
+        let mut s = SharedState::new();
+        // Bank 0 slot 0 filled with a capture slot to ensure we skip past it.
+        s.banks[0].slots[0] = Some(capture_slot("/dev/video0"));
+        let path = std::path::PathBuf::from("/tmp/rec-2026-05-17-3.mp4");
+        crate::apply::auto_import_recording(&mut s, path.clone());
+        let slot1 = s.banks[0].slots[1].as_ref().expect("slot 1 populated");
+        match &slot1.source {
+            crate::state::SourceKind::File(p) => assert_eq!(p, &path),
+            _ => panic!("expected File source"),
+        }
+        assert!(slot1.name.contains("rec-2026-05-17-3"));
+    }
+
+    #[test]
+    fn auto_import_recording_when_bank_full_sets_last_error() {
+        let mut s = SharedState::new();
+        for i in 0..10 {
+            s.banks[0].slots[i] = Some(capture_slot(&format!("/dev/video{i}")));
+        }
+        crate::apply::auto_import_recording(&mut s, "/tmp/rec-2026-05-17-7.mp4".into());
+        let err = s.last_error.as_deref().unwrap_or("");
+        assert!(err.contains("recording saved"), "got: {err:?}");
+        assert!(err.contains("no empty slot"), "got: {err:?}");
     }
 
     #[test]
