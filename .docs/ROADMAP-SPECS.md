@@ -29,11 +29,14 @@ GLSL shader layer applied over the video sources. Each shader = one `.glsl` + `.
 
 In-memory ring buffer of decoded RGBA frames (target ~500 frames at the configured render resolution; size-cap by megabytes, not frame count, so it scales sanely). Captures from `current` player. New display mode `FRAMES` shows: ring size, scrub position, start/end markers, mix amount, playback speed / direction (`detour_settings` from the original). New control mode `DetourScrub` re-maps inputs to scrub controls. Compose pass blends ring output with live `current` per `detour_mix`. Reuses Phase 1's GL composite.
 
-**Dual-target ring sizing** (per 2026-05-16 spec revision):
+**Ring sizing** (revised 2026-05-16 — Pi 5 1GB baseline):
 - Ring size = byte-budget, not frame count.
-- `pi3` default budget: 128 MB (~34 frames @ 720p RGBA, ~107 @ 480p).
-- `pi5` default budget: 1 GB (~270 frames @ 720p RGBA, ~858 @ 480p).
-- Hard ceiling: 50% of detected free RAM at startup.
+- Per-target defaults:
+  - `pi3`: 128 MB (~34 frames @ 720p RGBA, ~107 @ 480p).
+  - `pi5`: 256 MB (~68 frames @ 720p RGBA, ~213 @ 480p) — sized for 1GB Pi 5 baseline.
+  - `desktop`: 512 MB.
+- Override via `[detour] ring_budget_mb = N` in `config.toml`. Larger Pi 5 SKUs (2/4/8/16 GB) bump this up explicitly.
+- Hard ceiling: 50% of detected free RAM at startup (`sysinfo` or `/proc/meminfo` read — no new heavy dep).
 - Ring is contiguous heap allocation, pre-allocated at startup, no reallocation during playback.
 
 **Depends on**: Phase 1.
