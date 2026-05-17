@@ -33,6 +33,7 @@ pub trait RackHandle {
     /// Push only the param values; no shader compile / select. Used by the
     /// PARAM screen for live-edit while a shader is already active.
     fn set_shader_params(&mut self, params: [f32; 8]);
+    fn detour_scrub_by(&mut self, delta: i32);
 }
 
 pub fn apply<R: RackHandle>(action: Action, state: &mut SharedState, rack: &mut R) {
@@ -165,17 +166,52 @@ pub fn apply<R: RackHandle>(action: Action, state: &mut SharedState, rack: &mut 
         Action::ShaderParamSelect(n) => {
             state.shader_focus = n.min(7);
         }
-        Action::DetourEnter
-        | Action::DetourExit
-        | Action::DetourScrubBy(_)
-        | Action::DetourCycleSpeed
-        | Action::DetourToggleDirection
-        | Action::DetourTogglePlay
-        | Action::DetourSetStartMarker
-        | Action::DetourSetEndMarker
-        | Action::DetourClearMarkers
-        | Action::DetourCycleMix => {
-            // Wired in D-T6.
+        Action::DetourEnter => {
+            state.control_mode = ControlMode::DetourScrub;
+            state.display_mode = DisplayMode::Frames;
+        }
+        Action::DetourExit => {
+            state.control_mode = ControlMode::Default;
+        }
+        Action::DetourScrubBy(delta) => {
+            if state.control_mode == ControlMode::DetourScrub {
+                rack.detour_scrub_by(delta);
+            }
+        }
+        Action::DetourCycleSpeed => {
+            if state.control_mode == ControlMode::DetourScrub {
+                state.detour.cycle_speed();
+            }
+        }
+        Action::DetourToggleDirection => {
+            if state.control_mode == ControlMode::DetourScrub {
+                state.detour.toggle_direction();
+            }
+        }
+        Action::DetourTogglePlay => {
+            if state.control_mode == ControlMode::DetourScrub {
+                state.detour.toggle_play();
+            }
+        }
+        Action::DetourSetStartMarker => {
+            if state.control_mode == ControlMode::DetourScrub {
+                state.detour.set_start_marker();
+            }
+        }
+        Action::DetourSetEndMarker => {
+            if state.control_mode == ControlMode::DetourScrub {
+                state.detour.set_end_marker();
+            }
+        }
+        Action::DetourClearMarkers => {
+            if state.control_mode == ControlMode::DetourScrub {
+                state.detour.clear_markers();
+            }
+        }
+        Action::DetourCycleMix => {
+            if state.control_mode == ControlMode::DetourScrub {
+                state.detour.cycle_mix();
+            }
         }
         Action::ShaderParamAdjust(delta) => {
             if state.control_mode != ControlMode::ShaderParam {
@@ -271,6 +307,7 @@ mod tests {
         shader_triggers: Vec<String>,
         shader_cleared: u32,
         shader_param_pushes: Vec<[f32; 8]>,
+        detour_scrubs: Vec<i32>,
     }
 
     impl RackHandle for SpyRack {
@@ -300,6 +337,9 @@ mod tests {
         }
         fn set_shader_params(&mut self, params: [f32; 8]) {
             self.shader_param_pushes.push(params);
+        }
+        fn detour_scrub_by(&mut self, delta: i32) {
+            self.detour_scrubs.push(delta);
         }
     }
 
@@ -547,5 +587,86 @@ mod tests {
         assert_eq!(r.shader_param_pushes.len(), 1);
         let pushed = r.shader_param_pushes[0];
         assert!((pushed[1] - 0.52).abs() < 1e-5, "got {pushed:?}");
+    }
+
+    #[test]
+    fn detour_enter_sets_control_mode_and_display_mode() {
+        let mut s = SharedState::new();
+        let mut r = SpyRack::default();
+        apply(Action::DetourEnter, &mut s, &mut r);
+        assert_eq!(s.control_mode, ControlMode::DetourScrub);
+        assert_eq!(s.display_mode, DisplayMode::Frames);
+    }
+
+    #[test]
+    fn detour_exit_resets_control_mode_to_default() {
+        let mut s = SharedState::new();
+        s.control_mode = ControlMode::DetourScrub;
+        let mut r = SpyRack::default();
+        apply(Action::DetourExit, &mut s, &mut r);
+        assert_eq!(s.control_mode, ControlMode::Default);
+    }
+
+    #[test]
+    fn detour_scrub_by_outside_scrub_mode_is_noop() {
+        let mut s = SharedState::new();
+        let mut r = SpyRack::default();
+        apply(Action::DetourScrubBy(2), &mut s, &mut r);
+        assert!(r.detour_scrubs.is_empty());
+    }
+
+    #[test]
+    fn detour_scrub_by_in_scrub_mode_pushes_delta_to_rack() {
+        let mut s = SharedState::new();
+        s.control_mode = ControlMode::DetourScrub;
+        let mut r = SpyRack::default();
+        apply(Action::DetourScrubBy(-3), &mut s, &mut r);
+        assert_eq!(r.detour_scrubs, vec![-3]);
+    }
+
+    #[test]
+    fn detour_cycle_speed_advances_through_cycle() {
+        let mut s = SharedState::new();
+        s.control_mode = ControlMode::DetourScrub;
+        let mut r = SpyRack::default();
+        s.detour.speed = 1.0;
+        apply(Action::DetourCycleSpeed, &mut s, &mut r);
+        assert!((s.detour.speed - 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn detour_cycle_mix_advances() {
+        let mut s = SharedState::new();
+        s.control_mode = ControlMode::DetourScrub;
+        let mut r = SpyRack::default();
+        s.detour.mix = 0.0;
+        apply(Action::DetourCycleMix, &mut s, &mut r);
+        assert!((s.detour.mix - 0.25).abs() < 1e-6);
+    }
+
+    #[test]
+    fn detour_toggle_play_flips_auto_play() {
+        let mut s = SharedState::new();
+        s.control_mode = ControlMode::DetourScrub;
+        let mut r = SpyRack::default();
+        assert!(!s.detour.auto_play);
+        apply(Action::DetourTogglePlay, &mut s, &mut r);
+        assert!(s.detour.auto_play);
+    }
+
+    #[test]
+    fn detour_markers_set_and_clear() {
+        let mut s = SharedState::new();
+        s.control_mode = ControlMode::DetourScrub;
+        s.detour.read_position = 7;
+        let mut r = SpyRack::default();
+        apply(Action::DetourSetStartMarker, &mut s, &mut r);
+        assert_eq!(s.detour.start_marker, Some(7));
+        s.detour.read_position = 42;
+        apply(Action::DetourSetEndMarker, &mut s, &mut r);
+        assert_eq!(s.detour.end_marker, Some(42));
+        apply(Action::DetourClearMarkers, &mut s, &mut r);
+        assert!(s.detour.start_marker.is_none());
+        assert!(s.detour.end_marker.is_none());
     }
 }

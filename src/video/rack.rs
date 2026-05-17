@@ -221,6 +221,9 @@ impl RackHandle for PlayerRack {
             let _ = tx.send(ShaderCommand::SetParams(params));
         }
     }
+    fn detour_scrub_by(&mut self, _delta: i32) {
+        // Wired in T9 (channel to main loop).
+    }
 }
 
 #[cfg(test)]
