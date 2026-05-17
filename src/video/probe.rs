@@ -5,6 +5,13 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::thread::{self, JoinHandle};
+
+use crossbeam_channel::{Receiver, Sender};
+use gstreamer as gst;
+use gstreamer_pbutils as gst_pbutils;
+use gstreamer_pbutils::prelude::DiscovererStreamInfoExt;
+use tracing::warn;
 
 use crate::render::shader_assembly::GlesProfile;
 
@@ -99,6 +106,85 @@ pub fn short_codec_name(caps_name: &str) -> String {
     }
 }
 
+/// Handle to a background probe thread. Drop the request-channel `Sender`
+/// to signal shutdown; then call `join()`.
+pub struct ProbeWorker {
+    handle: JoinHandle<()>,
+}
+
+impl ProbeWorker {
+    /// Spawn a worker that pulls `ProbeRequest`s from `rx`, runs the
+    /// gstreamer-pbutils Discoverer (2s timeout), and pushes `ProbeResult`s
+    /// to `res_tx`. The thread exits when `rx` is dropped/closed.
+    ///
+    /// Caller is responsible for ensuring `gst::init()` has been called
+    /// before spawning.
+    pub fn spawn(rx: Receiver<ProbeRequest>, res_tx: Sender<ProbeResult>) -> Self {
+        let handle = thread::Builder::new()
+            .name("recur-probe".into())
+            .spawn(move || worker_loop(rx, res_tx))
+            .expect("probe worker spawn");
+        Self { handle }
+    }
+
+    pub fn join(self) -> std::thread::Result<()> {
+        self.handle.join()
+    }
+}
+
+fn worker_loop(rx: Receiver<ProbeRequest>, res_tx: Sender<ProbeResult>) {
+    let timeout = gst::ClockTime::from_seconds(2);
+    let disc = match gst_pbutils::Discoverer::new(timeout) {
+        Ok(d) => d,
+        Err(e) => {
+            warn!("probe worker init failed: {e}; thread exits");
+            return;
+        }
+    };
+    while let Ok(req) = rx.recv() {
+        let status = probe_one(&disc, &req.path);
+        let result = ProbeResult {
+            path: req.path,
+            mtime: req.mtime,
+            status,
+        };
+        if res_tx.send(result).is_err() {
+            return;
+        }
+    }
+}
+
+fn probe_one(disc: &gst_pbutils::Discoverer, path: &Path) -> CodecStatus {
+    let uri = match url_from_path(path) {
+        Some(u) => u,
+        None => return CodecStatus::Unknown,
+    };
+    let info = match disc.discover_uri(&uri) {
+        Ok(i) => i,
+        Err(e) => {
+            warn!("probe {}: {e}", path.display());
+            return CodecStatus::Unknown;
+        }
+    };
+    let video_streams = info.video_streams();
+    let Some(first) = video_streams.first() else {
+        return CodecStatus::Unknown;
+    };
+    let Some(caps) = first.caps() else {
+        return CodecStatus::Unknown;
+    };
+    let Some(structure) = caps.structure(0) else {
+        return CodecStatus::Unknown;
+    };
+    let codec = short_codec_name(structure.name().as_str());
+    CodecStatus::Supported(codec)
+}
+
+fn url_from_path(p: &Path) -> Option<String> {
+    let canon = std::fs::canonicalize(p).ok()?;
+    Some(format!("file://{}", canon.display()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -147,5 +233,15 @@ mod tests {
             CodecStatus::Unsupported(n) => assert_eq!(n, "hevc"),
             _ => panic!("expected Unsupported variant"),
         }
+    }
+
+    #[test]
+    fn probe_worker_starts_and_stops_cleanly() {
+        gstreamer::init().ok();
+        let (tx, rx) = crossbeam_channel::unbounded();
+        let (res_tx, _res_rx) = crossbeam_channel::unbounded::<ProbeResult>();
+        let worker = ProbeWorker::spawn(rx, res_tx);
+        drop(tx); // close request channel → worker exits
+        worker.join().expect("worker thread must join cleanly");
     }
 }
