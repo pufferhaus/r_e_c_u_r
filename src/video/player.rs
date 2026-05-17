@@ -48,10 +48,12 @@ pub struct Player {
     pub last_error: Option<String>,
     pipeline: Option<gst::Pipeline>,
     pub appsink: Option<AppSink>,
+    pub render_width: u32,
+    pub render_height: u32,
 }
 
 impl Player {
-    pub fn empty(layer: u32) -> Self {
+    pub fn empty(layer: u32, render_width: u32, render_height: u32) -> Self {
         Self {
             status: PlayerStatus::Empty,
             slot: None,
@@ -61,13 +63,15 @@ impl Player {
             last_error: None,
             pipeline: None,
             appsink: None,
+            render_width,
+            render_height,
         }
     }
 
     pub fn try_load(&mut self, slot: Slot) -> Result<()> {
         self.unload();
         let BuiltPipeline { pipeline, appsink } =
-            pipeline_factory::build_for_file(&slot.location)?;
+            pipeline_factory::build_for_file(&slot.location, self.render_width, self.render_height)?;
         pipeline.set_state(gst::State::Paused).map_err(|e| {
             crate::Error::Gst(format!("set_state Paused: {e}"))
         })?;
@@ -189,7 +193,7 @@ mod tests {
 
     #[test]
     fn empty_player_has_empty_status() {
-        let p = Player::empty(0);
+        let p = Player::empty(0, 720, 480);
         assert_eq!(p.status, PlayerStatus::Empty);
         assert!(p.slot.is_none());
     }
@@ -198,7 +202,7 @@ mod tests {
     #[ignore] // requires gstreamer plugins installed
     fn loads_test_clip_to_loaded_state() {
         init_gst();
-        let mut p = Player::empty(0);
+        let mut p = Player::empty(0, 720, 480);
         let slot = Slot {
             location: test_clip(),
             name: "test_smpte.mp4".into(),
@@ -222,7 +226,7 @@ mod tests {
     #[ignore] // requires gst plugins + bundled clip
     fn pulls_an_rgba_frame_after_load() {
         init_gst();
-        let mut p = Player::empty(0);
+        let mut p = Player::empty(0, 720, 480);
         let slot = Slot {
             location: test_clip(),
             name: "test_smpte.mp4".into(),

@@ -47,11 +47,11 @@ pub struct PlayerRack {
 }
 
 impl PlayerRack {
-    pub fn new(settings: SamplerSettings) -> Self {
+    pub fn new(settings: SamplerSettings, render_width: u32, render_height: u32) -> Self {
         Self {
-            last: Player::empty(254),
-            current: Player::empty(253),
-            next: Player::empty(252),
+            last: Player::empty(254, render_width, render_height),
+            current: Player::empty(253, render_width, render_height),
+            next: Player::empty(252, render_width, render_height),
             settings,
             rng: ChaCha8Rng::seed_from_u64(0xC0FFEE),
             next_layer: 251,
@@ -248,7 +248,7 @@ mod tests {
 
     #[test]
     fn trigger_shader_sends_command_when_channel_set() {
-        let mut r = PlayerRack::new(SamplerSettings::default());
+        let mut r = PlayerRack::new(SamplerSettings::default(), 720, 480);
         let (tx, rx) = crossbeam_channel::unbounded();
         r.set_shader_channel(tx);
         use crate::apply::RackHandle;
@@ -260,7 +260,7 @@ mod tests {
 
     #[test]
     fn trigger_shader_without_channel_is_silent_noop() {
-        let mut r = PlayerRack::new(SamplerSettings::default());
+        let mut r = PlayerRack::new(SamplerSettings::default(), 720, 480);
         use crate::apply::RackHandle;
         r.trigger_shader("color_shift", [0.0; 8]);
         r.clear_shader();
@@ -269,7 +269,7 @@ mod tests {
 
     #[test]
     fn alloc_layer_wraps_at_zero() {
-        let mut r = PlayerRack::new(SamplerSettings::default());
+        let mut r = PlayerRack::new(SamplerSettings::default(), 720, 480);
         r.next_layer = 0;
         assert_eq!(r.alloc_layer(), 0);
         assert_eq!(r.next_layer, 254);
@@ -277,7 +277,7 @@ mod tests {
 
     #[test]
     fn trigger_stores_bank_snapshot() {
-        let mut r = PlayerRack::new(SamplerSettings::default());
+        let mut r = PlayerRack::new(SamplerSettings::default(), 720, 480);
         let mut bank = Bank::empty();
         bank.slots[0] = Some(Slot {
             location: "/tmp/x.mp4".into(),
@@ -296,7 +296,7 @@ mod tests {
 
     #[test]
     fn reload_all_clears_all_three() {
-        let mut r = PlayerRack::new(SamplerSettings::default());
+        let mut r = PlayerRack::new(SamplerSettings::default(), 720, 480);
         r.last.status = PlayerStatus::Loaded;
         r.current.status = PlayerStatus::Playing;
         r.next.status = PlayerStatus::Loaded;
@@ -308,7 +308,7 @@ mod tests {
 
     #[test]
     fn drain_last_error_pulls_from_any_player() {
-        let mut r = PlayerRack::new(SamplerSettings::default());
+        let mut r = PlayerRack::new(SamplerSettings::default(), 720, 480);
         r.current.last_error = Some("decode failed".into());
         assert_eq!(r.drain_last_error(), Some("decode failed".into()));
         assert!(r.drain_last_error().is_none());
@@ -316,7 +316,7 @@ mod tests {
 
     #[test]
     fn detour_scrub_sends_command_when_channel_set() {
-        let mut r = PlayerRack::new(SamplerSettings::default());
+        let mut r = PlayerRack::new(SamplerSettings::default(), 720, 480);
         let (tx, rx) = crossbeam_channel::unbounded();
         r.set_detour_channel(tx);
         use crate::apply::RackHandle;

@@ -150,7 +150,7 @@ fn main() -> anyhow::Result<()> {
     );
 
     let sampler_settings = state.sampler.clone();
-    let mut rack = PlayerRack::new(sampler_settings);
+    let mut rack = PlayerRack::new(sampler_settings, cfg.render.width, cfg.render.height);
     let (shader_tx, shader_rx) = crossbeam_channel::unbounded::<recur::video::rack::ShaderCommand>();
     rack.set_shader_channel(shader_tx);
     let (detour_tx, detour_rx) = crossbeam_channel::unbounded::<recur::video::rack::DetourCommand>();
