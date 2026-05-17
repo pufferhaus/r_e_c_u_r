@@ -110,6 +110,10 @@ fn parse_action(s: &str) -> std::result::Result<Action, ()> {
         let n: u8 = rest.parse().map_err(|_| ())?;
         return Ok(Action::ShaderParamSelect(n));
     }
+    if let Some(rest) = s.strip_prefix("DetourScrubBy(").and_then(|r| r.strip_suffix(')')) {
+        let n: i32 = rest.parse().map_err(|_| ())?;
+        return Ok(Action::DetourScrubBy(n));
+    }
     if let Some(rest) = s.strip_prefix("CycleSetting(").and_then(|r| r.strip_suffix(')')) {
         let id = match rest {
             "LoopType" => SettingId::LoopType,
@@ -144,6 +148,15 @@ fn parse_action(s: &str) -> std::result::Result<Action, ()> {
         "ClearLoop" => Action::ClearLoop,
         "TogglePlayPause" => Action::TogglePlayPause,
         "Reload" => Action::Reload,
+        "DetourEnter" => Action::DetourEnter,
+        "DetourExit" => Action::DetourExit,
+        "DetourCycleSpeed" => Action::DetourCycleSpeed,
+        "DetourToggleDirection" => Action::DetourToggleDirection,
+        "DetourTogglePlay" => Action::DetourTogglePlay,
+        "DetourSetStartMarker" => Action::DetourSetStartMarker,
+        "DetourSetEndMarker" => Action::DetourSetEndMarker,
+        "DetourClearMarkers" => Action::DetourClearMarkers,
+        "DetourCycleMix" => Action::DetourCycleMix,
         _ => return Err(()),
     };
     Ok(action)
@@ -233,6 +246,36 @@ mod tests {
         let s = "[bindings]\n\"KeyK\" = \"EnterMode(ShdrBnk)\"\n";
         let km = Keymap::parse(s).unwrap();
         assert_eq!(km.lookup("KeyK"), Some(Action::EnterMode(DisplayMode::ShdrBnk)));
+    }
+
+    #[test]
+    fn parses_all_detour_actions() {
+        let s = r#"
+            [bindings]
+            "KeyD" = "DetourEnter"
+            "Escape" = "DetourExit"
+            "ArrowLeft" = "DetourScrubBy(-1)"
+            "ArrowRight" = "DetourScrubBy(10)"
+            "ArrowUp" = "DetourCycleSpeed"
+            "ArrowDown" = "DetourToggleDirection"
+            "Space" = "DetourTogglePlay"
+            "BracketLeft" = "DetourSetStartMarker"
+            "BracketRight" = "DetourSetEndMarker"
+            "Backslash" = "DetourClearMarkers"
+            "KeyM" = "DetourCycleMix"
+        "#;
+        let km = Keymap::parse(s).unwrap();
+        assert_eq!(km.lookup("KeyD"), Some(Action::DetourEnter));
+        assert_eq!(km.lookup("Escape"), Some(Action::DetourExit));
+        assert_eq!(km.lookup("ArrowLeft"), Some(Action::DetourScrubBy(-1)));
+        assert_eq!(km.lookup("ArrowRight"), Some(Action::DetourScrubBy(10)));
+        assert_eq!(km.lookup("ArrowUp"), Some(Action::DetourCycleSpeed));
+        assert_eq!(km.lookup("ArrowDown"), Some(Action::DetourToggleDirection));
+        assert_eq!(km.lookup("Space"), Some(Action::DetourTogglePlay));
+        assert_eq!(km.lookup("BracketLeft"), Some(Action::DetourSetStartMarker));
+        assert_eq!(km.lookup("BracketRight"), Some(Action::DetourSetEndMarker));
+        assert_eq!(km.lookup("Backslash"), Some(Action::DetourClearMarkers));
+        assert_eq!(km.lookup("KeyM"), Some(Action::DetourCycleMix));
     }
 
     #[test]

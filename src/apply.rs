@@ -165,6 +165,18 @@ pub fn apply<R: RackHandle>(action: Action, state: &mut SharedState, rack: &mut 
         Action::ShaderParamSelect(n) => {
             state.shader_focus = n.min(7);
         }
+        Action::DetourEnter
+        | Action::DetourExit
+        | Action::DetourScrubBy(_)
+        | Action::DetourCycleSpeed
+        | Action::DetourToggleDirection
+        | Action::DetourTogglePlay
+        | Action::DetourSetStartMarker
+        | Action::DetourSetEndMarker
+        | Action::DetourClearMarkers
+        | Action::DetourCycleMix => {
+            // Wired in D-T6.
+        }
         Action::ShaderParamAdjust(delta) => {
             if state.control_mode != ControlMode::ShaderParam {
                 return;

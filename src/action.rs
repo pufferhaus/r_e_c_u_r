@@ -50,6 +50,18 @@ pub enum Action {
     ShaderParamAdjust(i8),
     /// Move the param-edit focus to slot 0..=7.
     ShaderParamSelect(u8),
+
+    // Detour (Phase 3)
+    DetourEnter,
+    DetourExit,
+    DetourScrubBy(i32),
+    DetourCycleSpeed,
+    DetourToggleDirection,
+    DetourTogglePlay,
+    DetourSetStartMarker,
+    DetourSetEndMarker,
+    DetourClearMarkers,
+    DetourCycleMix,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
