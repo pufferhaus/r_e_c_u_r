@@ -342,7 +342,10 @@ impl WinitGlTarget {
             gl.enable_vertex_attrib_array(self.uv_loc);
             gl.vertex_attrib_pointer_f32(self.uv_loc, 2, glow::FLOAT, false, 16, 8);
 
+            gl.enable(glow::BLEND);
+            gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
             gl.draw_arrays(glow::TRIANGLES, 0, 6);
+            gl.disable(glow::BLEND);
 
             // Disable attrib arrays to leave clean GL state
             gl.disable_vertex_attrib_array(self.pos_loc);
