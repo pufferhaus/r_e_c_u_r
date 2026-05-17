@@ -242,20 +242,38 @@ impl RackHandle for PlayerRack {
 
     fn start_recording(
         &mut self,
-        _device_path: &str,
-        _file_path: &std::path::Path,
-        _target: crate::capture::recording::Target,
+        device_path: &str,
+        file_path: &std::path::Path,
+        target: crate::capture::recording::Target,
     ) -> crate::error::Result<()> {
-        // Real implementation lands in Task 11 (gst-side hot-swap).
-        Ok(())
+        for player in [&mut self.current, &mut self.next, &mut self.last] {
+            if let Some(slot) = &player.slot {
+                if let crate::state::SourceKind::Capture(d) = &slot.source {
+                    if d.path == device_path {
+                        return player.start_recording(file_path, target);
+                    }
+                }
+            }
+        }
+        Err(crate::Error::Gst(format!(
+            "no live capture player for device {device_path}"
+        )))
     }
 
     fn stop_recording(&mut self) {
-        // Real implementation in Task 11.
+        for player in [&mut self.current, &mut self.next, &mut self.last] {
+            if player.recording_bin.is_some() {
+                player.stop_recording_self();
+            }
+        }
     }
 
     fn drain_finalized(&mut self) -> Vec<std::path::PathBuf> {
-        Vec::new()
+        let mut out = Vec::new();
+        for player in [&mut self.current, &mut self.next, &mut self.last] {
+            out.append(&mut player.finalized_records);
+        }
+        out
     }
 }
 

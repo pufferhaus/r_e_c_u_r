@@ -50,6 +50,18 @@ pub struct Player {
     pub appsink: Option<AppSink>,
     pub render_width: u32,
     pub render_height: u32,
+    /// Phase 4b — the record bin currently attached to the capture pipeline's
+    /// tee, or `None` when not recording.
+    pub recording_bin: Option<gst::Bin>,
+    /// Phase 4b — the output file path the active recording is writing to.
+    /// Set in `start_recording`, cleared on finalize. Used by `stop_recording_self`
+    /// so we don't have to fish it back out of the bin's properties.
+    pub recording_path: Option<std::path::PathBuf>,
+    /// Phase 4b — when the record bin sent EOS and tear-down completed,
+    /// the finalized file path is pushed here. Drained by the rack.
+    pub finalized_records: Vec<std::path::PathBuf>,
+    /// Phase 4b — (bin awaiting EOS round-trip, file path to publish on success).
+    pub pending_finalize: Option<(gst::Bin, std::path::PathBuf)>,
 }
 
 impl Player {
@@ -65,6 +77,10 @@ impl Player {
             appsink: None,
             render_width,
             render_height,
+            recording_bin: None,
+            recording_path: None,
+            finalized_records: Vec::new(),
+            pending_finalize: None,
         }
     }
 
@@ -102,7 +118,45 @@ impl Player {
                     self.seek_to_start();
                     self.status = PlayerStatus::Loaded;
                 }
-                Eos(_) => self.status = PlayerStatus::Finished,
+                Eos(_) => {
+                    // EOS from the record bin is distinct from EOS of the
+                    // source. Disambiguate by checking whether the message
+                    // source has the pending record bin as an ancestor.
+                    let from_record_bin = match (msg.src(), self.pending_finalize.as_ref()) {
+                        (Some(src), Some((bin, _))) => src.has_as_ancestor(bin),
+                        _ => false,
+                    };
+                    if from_record_bin {
+                        if let Some((bin, path)) = self.pending_finalize.take() {
+                            let _ = bin.set_state(gst::State::Null);
+                            let _ = pipeline.remove(&bin);
+                            // Re-attach the placeholder fakesink so the tee
+                            // never has an unlinked request pad.
+                            if let (Some(ph), Some(tee)) = (
+                                pipeline.by_name("rec_placeholder"),
+                                pipeline.by_name("cap_t"),
+                            ) {
+                                let _ = ph.sync_state_with_parent();
+                                if let (Some(tee_src), Some(ph_sink)) = (
+                                    tee.request_pad_simple("src_%u"),
+                                    ph.static_pad("sink"),
+                                ) {
+                                    if ph_sink.peer().is_none() {
+                                        let _ = tee_src.link(&ph_sink);
+                                    } else {
+                                        // Already linked from before — release
+                                        // the spurious extra request pad.
+                                        tee.release_request_pad(&tee_src);
+                                    }
+                                }
+                            }
+                            self.recording_path = None;
+                            self.finalized_records.push(path);
+                        }
+                    } else {
+                        self.status = PlayerStatus::Finished;
+                    }
+                }
                 Error(e) => {
                     let msg = format!("gst error from {:?}: {}", e.src().map(|s| s.name()), e.error());
                     warn!("{msg}");
@@ -139,6 +193,13 @@ impl Player {
     }
 
     pub fn unload(&mut self) {
+        // Tear down any in-flight record bin before tearing down the parent
+        // pipeline so we don't leak the bin's state or its sink file handle.
+        if let Some(bin) = self.recording_bin.take() {
+            let _ = bin.set_state(gst::State::Null);
+        }
+        self.pending_finalize = None;
+        self.recording_path = None;
         if let Some(p) = self.pipeline.take() {
             let _ = p.set_state(gst::State::Null);
         }
@@ -165,6 +226,97 @@ impl Player {
         let h: i32 = s.get("height").ok()?;
         let map = buffer.into_mapped_buffer_readable().ok()?;
         Some(VideoFrame { _sample: sample, map, width: w as u32, height: h as u32 })
+    }
+
+    /// Phase 4b — attach a record bin to the live capture pipeline's `cap_t`
+    /// tee. Detaches the placeholder fakesink first (releasing its request
+    /// pad) and links a fresh tee src pad to the record bin's sink ghost.
+    pub fn start_recording(
+        &mut self,
+        file_path: &std::path::Path,
+        target: crate::capture::recording::Target,
+    ) -> Result<()> {
+        if self.recording_bin.is_some() {
+            return Err(crate::Error::Gst(
+                "already recording on this player".into(),
+            ));
+        }
+        let pipeline = self
+            .pipeline
+            .as_ref()
+            .ok_or_else(|| crate::Error::Gst("player has no pipeline".into()))?;
+        let tee = pipeline.by_name("cap_t").ok_or_else(|| {
+            crate::Error::Gst("no `cap_t` tee on pipeline (not a capture player?)".into())
+        })?;
+        let placeholder = pipeline.by_name("rec_placeholder");
+
+        // Build the record bin from the parse description. The parse helper
+        // auto-ghosts the leading `queue ! ...` chain's sink pad so we can
+        // link the tee straight to `bin.static_pad("sink")`.
+        let desc = crate::capture::recording::build_record_bin_desc(target, file_path);
+        let bin = gst::parse::bin_from_description(&desc, /*ghost_unlinked_pads=*/ true)
+            .map_err(|e| crate::Error::Gst(format!("bin_from_description: {e}")))?;
+
+        pipeline
+            .add(&bin)
+            .map_err(|e| crate::Error::Gst(format!("pipeline.add(bin): {e}")))?;
+        bin.sync_state_with_parent()
+            .map_err(|e| crate::Error::Gst(format!("sync_state_with_parent: {e}")))?;
+
+        // Detach the placeholder fakesink: unlink its sink pad from its tee
+        // peer, release the tee's request pad, and put the fakesink to NULL
+        // so it stops draining buffers but remains in the pipeline ready to
+        // be re-attached when recording stops.
+        if let Some(ph) = placeholder.as_ref() {
+            if let Some(sink_pad) = ph.static_pad("sink") {
+                if let Some(peer) = sink_pad.peer() {
+                    let _ = peer.unlink(&sink_pad);
+                    if let Some(tee_ref) = peer.parent_element() {
+                        tee_ref.release_request_pad(&peer);
+                    }
+                }
+            }
+            let _ = ph.set_state(gst::State::Null);
+        }
+
+        // Request a fresh src pad on the tee and link to the record bin's
+        // sink ghost.
+        let tee_src = tee
+            .request_pad_simple("src_%u")
+            .ok_or_else(|| crate::Error::Gst("tee.request_pad failed".into()))?;
+        let bin_sink = bin
+            .static_pad("sink")
+            .ok_or_else(|| crate::Error::Gst("record bin has no sink ghost".into()))?;
+        tee_src
+            .link(&bin_sink)
+            .map_err(|e| crate::Error::Gst(format!("tee->bin link: {e:?}")))?;
+
+        self.recording_bin = Some(bin);
+        self.recording_path = Some(file_path.to_path_buf());
+        Ok(())
+    }
+
+    /// Phase 4b — send EOS to the attached record bin. Tear-down completes
+    /// asynchronously; the finalized path lands in `finalized_records` once
+    /// the bus reports EOS forwarded from the bin.
+    pub fn stop_recording(&mut self, file_path: std::path::PathBuf) {
+        let Some(bin) = self.recording_bin.take() else {
+            return;
+        };
+        if let Some(sink) = bin.static_pad("sink") {
+            let _ = sink.send_event(gst::event::Eos::new());
+        }
+        self.pending_finalize = Some((bin, file_path));
+    }
+
+    /// Phase 4b — convenience: stop recording using whatever file path the
+    /// player attached at `start_recording` time.
+    pub fn stop_recording_self(&mut self) {
+        let path = self
+            .recording_path
+            .take()
+            .unwrap_or_else(|| std::path::PathBuf::from("recording.mp4"));
+        self.stop_recording(path);
     }
 
     fn seek_to_start(&mut self) {
