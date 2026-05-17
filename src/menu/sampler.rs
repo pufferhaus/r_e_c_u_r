@@ -26,11 +26,12 @@ impl Screen for SamplerBody {
             "start",
             "end",
         ));
+        let rec = state.active_recording.as_ref();
         for (i, opt) in bank.slots.iter().enumerate() {
             let row_idx = 5 + i; // body rows 5..14 (10 rows)
             let line = match opt {
                 None => format!("{:^6} {:<17} {:>5} {:>5} {:<5}", i, "", "", "", ""),
-                Some(s) => fmt_slot_row(i, s),
+                Some(s) => fmt_slot_row_with_record_state(i, s, rec),
             };
             grid.write_row(row_idx, &line);
             if i == self.selected as usize {
@@ -55,16 +56,28 @@ impl Screen for SamplerBody {
 }
 
 fn fmt_slot_row(idx: usize, s: &Slot) -> String {
-    let display_name = match &s.source {
+    fmt_slot_row_with_record_state(idx, s, None)
+}
+
+fn fmt_slot_row_with_record_state(
+    idx: usize,
+    s: &Slot,
+    rec: Option<&crate::capture::recording::ActiveRecording>,
+) -> String {
+    let truncated: String = match &s.source {
         crate::state::SourceKind::File(_) => {
             let base = s.name.rsplit_once('.').map(|(a, _)| a).unwrap_or(&s.name);
-            base.to_string()
+            base.chars().take(17).collect()
         }
-        crate::state::SourceKind::Capture(_) => {
-            format!("[cap] {}", s.name)
+        crate::state::SourceKind::Capture(d) => {
+            let is_recording_this = rec
+                .filter(|r| r.device_path == d.path
+                    && r.state == crate::capture::recording::RecState::Recording)
+                .is_some();
+            let prefix = if is_recording_this { "[cap][REC] " } else { "[cap] " };
+            format!("{}{}", prefix, s.name).chars().take(17).collect()
         }
     };
-    let truncated: String = display_name.chars().take(17).collect();
     format!(
         "{:^6} {:<17} {:>5} {:>5} {:<5}",
         idx,
@@ -136,5 +149,61 @@ mod tests {
         };
         let row = fmt_slot_row(0, &s);
         assert!(row.contains("[cap]"), "got: {row}");
+    }
+
+    #[test]
+    fn capture_slot_renders_with_rec_marker_when_recording() {
+        use crate::capture::recording::{ActiveRecording, RecState};
+        use crate::capture::CaptureDevice;
+        use std::time::Instant;
+        let s = Slot {
+            source: SourceKind::Capture(CaptureDevice {
+                path: "/dev/video0".into(),
+                label: "v4l2:video0".into(),
+            }),
+            name: "v4l2:video0".into(),
+            start: -1.0, end: -1.0, length: 0.0, rate: 1.0,
+        };
+        let row = fmt_slot_row_with_record_state(
+            0,
+            &s,
+            Some(&ActiveRecording {
+                device_path: "/dev/video0".into(),
+                file_path: "/tmp/r.mp4".into(),
+                started_at: Instant::now(),
+                state: RecState::Recording,
+                last_disk_check: Instant::now(),
+            }),
+        );
+        assert!(row.contains("[cap]"), "row: {row}");
+        assert!(row.contains("[REC]"), "row: {row}");
+    }
+
+    #[test]
+    fn capture_slot_with_different_device_does_not_show_rec_marker() {
+        use crate::capture::recording::{ActiveRecording, RecState};
+        use crate::capture::CaptureDevice;
+        use std::time::Instant;
+        let s = Slot {
+            source: SourceKind::Capture(CaptureDevice {
+                path: "/dev/video0".into(),
+                label: "v4l2:video0".into(),
+            }),
+            name: "v4l2:video0".into(),
+            start: -1.0, end: -1.0, length: 0.0, rate: 1.0,
+        };
+        let row = fmt_slot_row_with_record_state(
+            0,
+            &s,
+            Some(&ActiveRecording {
+                device_path: "/dev/video1".into(),
+                file_path: "/tmp/r.mp4".into(),
+                started_at: Instant::now(),
+                state: RecState::Recording,
+                last_disk_check: Instant::now(),
+            }),
+        );
+        assert!(row.contains("[cap]"), "row: {row}");
+        assert!(!row.contains("[REC]"), "row should NOT contain [REC]: {row}");
     }
 }
