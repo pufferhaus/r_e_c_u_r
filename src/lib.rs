@@ -1,6 +1,7 @@
 pub mod error;
 pub use error::{Error, Result};
 pub mod action;     // Task 6
+pub mod detour;     // Phase 3 (detour)
 pub mod apply;      // Task 7
 pub mod config;     // Task 3
 pub mod input;      // Task 11
