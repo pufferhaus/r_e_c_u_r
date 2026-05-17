@@ -440,6 +440,25 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
+    // Phase 4b — finalize an in-progress recording on clean shutdown.
+    if state.active_recording.is_some() {
+        rack.stop_recording();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+        while std::time::Instant::now() < deadline {
+            rack.tick();
+            let finalized = rack.drain_finalized();
+            if !finalized.is_empty() {
+                for path in finalized {
+                    recur::apply::auto_import_recording(&mut state, path);
+                }
+                state.active_recording = None;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        // If we timeout, leave the partial file on disk. The moov atom may be missing.
+    }
+
     persist::save_banks(&state_dir, &state.banks)?;
     persist::save_settings(&state_dir, &state.sampler)?;
     persist::save_paths(&state_dir, &state.paths_to_browser)?;
