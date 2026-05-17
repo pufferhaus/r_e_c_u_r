@@ -61,7 +61,11 @@ pub struct Player {
     /// the finalized file path is pushed here. Drained by the rack.
     pub finalized_records: Vec<std::path::PathBuf>,
     /// Phase 4b — (bin awaiting EOS round-trip, file path to publish on success).
-    pub pending_finalize: Option<(gst::Bin, std::path::PathBuf)>,
+    pub pending_finalize: Option<(gst::Bin, gst::Pad, std::path::PathBuf)>,
+    /// Phase 4b — the tee src pad that the record bin is linked to.
+    /// Released in the EOS finalize block so the tee doesn't leak request
+    /// pads across record cycles.
+    pub recording_tee_pad: Option<gst::Pad>,
 }
 
 impl Player {
@@ -81,6 +85,7 @@ impl Player {
             recording_path: None,
             finalized_records: Vec::new(),
             pending_finalize: None,
+            recording_tee_pad: None,
         }
     }
 
@@ -123,29 +128,31 @@ impl Player {
                     // source. Disambiguate by checking whether the message
                     // source has the pending record bin as an ancestor.
                     let from_record_bin = match (msg.src(), self.pending_finalize.as_ref()) {
-                        (Some(src), Some((bin, _))) => src.has_as_ancestor(bin),
+                        (Some(src), Some((bin, _, _))) => src.has_as_ancestor(bin),
                         _ => false,
                     };
                     if from_record_bin {
-                        if let Some((bin, path)) = self.pending_finalize.take() {
+                        if let Some((bin, tee_pad, path)) = self.pending_finalize.take() {
                             let _ = bin.set_state(gst::State::Null);
+                            let pipeline = self.pipeline.as_ref().expect("pipeline alive");
+                            // Release the tee request pad to avoid leaks across cycles.
+                            if let Some(tee) = pipeline.by_name("cap_t") {
+                                tee.release_request_pad(&tee_pad);
+                            }
                             let _ = pipeline.remove(&bin);
-                            // Re-attach the placeholder fakesink so the tee
-                            // never has an unlinked request pad.
-                            if let (Some(ph), Some(tee)) = (
-                                pipeline.by_name("rec_placeholder"),
-                                pipeline.by_name("cap_t"),
-                            ) {
-                                let _ = ph.sync_state_with_parent();
-                                if let (Some(tee_src), Some(ph_sink)) = (
-                                    tee.request_pad_simple("src_%u"),
-                                    ph.static_pad("sink"),
-                                ) {
+                            // Re-attach the placeholder fakesink to the tee:
+                            // LINK FIRST, then sync state (fix #2).
+                            if let (Some(ph), Some(tee)) =
+                                (pipeline.by_name("rec_placeholder"), pipeline.by_name("cap_t"))
+                            {
+                                if let (Some(tee_src), Some(ph_sink)) =
+                                    (tee.request_pad_simple("src_%u"), ph.static_pad("sink"))
+                                {
                                     if ph_sink.peer().is_none() {
                                         let _ = tee_src.link(&ph_sink);
+                                        let _ = ph.sync_state_with_parent();
                                     } else {
-                                        // Already linked from before — release
-                                        // the spurious extra request pad.
+                                        // Already linked — release the spurious request pad.
                                         tee.release_request_pad(&tee_src);
                                     }
                                 }
@@ -198,7 +205,10 @@ impl Player {
         if let Some(bin) = self.recording_bin.take() {
             let _ = bin.set_state(gst::State::Null);
         }
-        self.pending_finalize = None;
+        if let Some((bin, _tee_pad, _path)) = self.pending_finalize.take() {
+            let _ = bin.set_state(gst::State::Null);
+        }
+        self.recording_tee_pad = None;
         self.recording_path = None;
         if let Some(p) = self.pipeline.take() {
             let _ = p.set_state(gst::State::Null);
@@ -291,6 +301,7 @@ impl Player {
             .link(&bin_sink)
             .map_err(|e| crate::Error::Gst(format!("tee->bin link: {e:?}")))?;
 
+        self.recording_tee_pad = Some(tee_src);
         self.recording_bin = Some(bin);
         self.recording_path = Some(file_path.to_path_buf());
         Ok(())
@@ -303,10 +314,17 @@ impl Player {
         let Some(bin) = self.recording_bin.take() else {
             return;
         };
+        let Some(tee_pad) = self.recording_tee_pad.take() else {
+            // shouldn't happen, but if it does, just send EOS and skip pad release
+            if let Some(sink) = bin.static_pad("sink") {
+                let _ = sink.send_event(gst::event::Eos::new());
+            }
+            return;
+        };
         if let Some(sink) = bin.static_pad("sink") {
             let _ = sink.send_event(gst::event::Eos::new());
         }
-        self.pending_finalize = Some((bin, file_path));
+        self.pending_finalize = Some((bin, tee_pad, file_path));
     }
 
     /// Phase 4b — convenience: stop recording using whatever file path the
