@@ -127,6 +127,11 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
+    let (probe_tx, probe_req_rx) = crossbeam_channel::unbounded::<recur::video::ProbeRequest>();
+    let (probe_res_tx, probe_res_rx) = crossbeam_channel::unbounded::<recur::video::ProbeResult>();
+    let _probe_worker = recur::video::ProbeWorker::spawn(probe_req_rx, probe_res_tx);
+    state.probe_tx = Some(probe_tx);
+
     let shader_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("shaders");
     let shader_watcher = recur::shader::ShaderWatcher::start(&shader_dir)
         .map_err(|e| {
@@ -298,6 +303,12 @@ fn main() -> anyhow::Result<()> {
                     _ => tracing::debug!("hot-reload {name}: file gone or unreadable, skipping"),
                 }
             }
+        }
+
+        // Drain probe results into the cache.
+        for res in probe_res_rx.try_iter() {
+            let reclassified = recur::video::reclassify_for_profile(res.status, state.gles_profile);
+            state.probe_cache.insert(&res.path, res.mtime, reclassified);
         }
 
         // 3. Re-render text grid
