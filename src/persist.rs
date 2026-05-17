@@ -173,12 +173,12 @@ pub fn save_paths(state_dir: &Path, roots: &[PathBuf]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::Slot;
+    use crate::state::{Slot, SourceKind};
     use pretty_assertions::assert_eq;
 
     fn slot(name: &str) -> Slot {
         Slot {
-            location: format!("/clips/{}", name).into(),
+            source: SourceKind::File(format!("/clips/{}", name).into()),
             name: name.to_string(),
             start: 1.5,
             end: 4.2,
@@ -275,6 +275,29 @@ mod tests {
         save_shader_banks(tmp.path(), &[b.clone()]).unwrap();
         let got = load_shader_banks(tmp.path()).unwrap();
         assert_eq!(got, vec![b]);
+    }
+
+    #[test]
+    fn old_banks_toml_with_location_loads_into_file_source() {
+        let tmp = tempfile::tempdir().unwrap();
+        let old = r#"
+[[banks]]
+[[banks.slots]]
+index = 0
+location = "/clips/legacy.mp4"
+name = "legacy.mp4"
+start = -1.0
+end = -1.0
+length = 0.0
+rate = 1.0
+"#;
+        std::fs::write(tmp.path().join("banks.toml"), old).unwrap();
+        let banks = load_banks(tmp.path()).unwrap();
+        let slot = banks[0].slots[0].as_ref().expect("slot 0 present");
+        match &slot.source {
+            SourceKind::File(p) => assert!(p.to_str().unwrap().ends_with("legacy.mp4")),
+            _ => panic!("expected File source from legacy banks.toml"),
+        }
     }
 }
 

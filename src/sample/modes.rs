@@ -38,12 +38,13 @@ pub fn apply_rand_start<R: Rng>(slot: &mut Slot, settings: &SamplerSettings, rng
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::state::SourceKind;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
     fn slot(start: f64, end: f64, length: f64) -> Slot {
         Slot {
-            location: "/tmp/x.mp4".into(),
+            source: SourceKind::File("/tmp/x.mp4".into()),
             name: "x".into(),
             start,
             end,

@@ -296,7 +296,7 @@ fn cycle_setting(state: &mut SharedState, id: SettingId) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::Slot;
+    use crate::state::{Slot, SourceKind};
 
     #[derive(Default, Debug)]
     struct SpyRack {
@@ -400,7 +400,7 @@ mod tests {
 
     fn make_slot(name: &str) -> Slot {
         Slot {
-            location: format!("/tmp/{}.mp4", name).into(),
+            source: SourceKind::File(format!("/tmp/{}.mp4", name).into()),
             name: name.into(),
             start: -1.0,
             end: -1.0,
@@ -514,7 +514,7 @@ mod tests {
     fn set_loop_in_writes_to_state_slot() {
         let mut s = SharedState::new();
         s.banks[0].slots[2] = Some(Slot {
-            location: "/tmp/x.mp4".into(),
+            source: SourceKind::File("/tmp/x.mp4".into()),
             name: "x".into(),
             start: -1.0,
             end: 5.0,
@@ -532,7 +532,7 @@ mod tests {
     fn set_loop_in_rejects_when_pos_past_end() {
         let mut s = SharedState::new();
         s.banks[0].slots[2] = Some(Slot {
-            location: "/tmp/x.mp4".into(),
+            source: SourceKind::File("/tmp/x.mp4".into()),
             name: "x".into(),
             start: 0.0,
             end: 3.0,
@@ -551,7 +551,7 @@ mod tests {
     fn clear_loop_resets_both_endpoints() {
         let mut s = SharedState::new();
         s.banks[0].slots[2] = Some(Slot {
-            location: "/tmp/x.mp4".into(),
+            source: SourceKind::File("/tmp/x.mp4".into()),
             name: "x".into(),
             start: 1.0,
             end: 4.0,

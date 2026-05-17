@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use crate::action::Action;
 use crate::sample::browser_walk::{walk_browser, BrowserRow};
-use crate::state::{SharedState, Slot};
+use crate::state::{SharedState, Slot, SourceKind};
 use crate::status::grid::TextGrid;
 use crate::ui::{Screen, ScreenResult};
 use crate::video::{CodecStatus, ProbeRequest};
@@ -130,7 +130,7 @@ impl Screen for BrowserBody {
                         ));
                     } else if let Some(idx) = state.current_bank().first_empty() {
                         let slot = Slot {
-                            location: row.path.clone(),
+                            source: SourceKind::File(row.path.clone()),
                             name: row.path.file_name().unwrap().to_string_lossy().into_owned(),
                             start: -1.0,
                             end: -1.0,
@@ -159,7 +159,7 @@ fn slot_label_for(state: &SharedState, path: &std::path::Path) -> Option<String>
     for (b_idx, bank) in state.banks.iter().enumerate() {
         for (s_idx, slot) in bank.slots.iter().enumerate() {
             if let Some(s) = slot {
-                if s.location == path {
+                if s.file_path() == Some(path) {
                     return Some(format!("{}-{}", b_idx, s_idx));
                 }
             }

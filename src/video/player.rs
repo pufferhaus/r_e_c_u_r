@@ -70,8 +70,14 @@ impl Player {
 
     pub fn try_load(&mut self, slot: Slot) -> Result<()> {
         self.unload();
-        let BuiltPipeline { pipeline, appsink } =
-            pipeline_factory::build_for_file(&slot.location, self.render_width, self.render_height)?;
+        let BuiltPipeline { pipeline, appsink } = match &slot.source {
+            crate::state::SourceKind::File(p) => {
+                pipeline_factory::build_for_file(p, self.render_width, self.render_height)?
+            }
+            crate::state::SourceKind::Capture(d) => {
+                pipeline_factory::build_for_capture(d, self.render_width, self.render_height)?
+            }
+        };
         pipeline.set_state(gst::State::Paused).map_err(|e| {
             crate::Error::Gst(format!("set_state Paused: {e}"))
         })?;
@@ -204,7 +210,7 @@ mod tests {
         init_gst();
         let mut p = Player::empty(0, 720, 480);
         let slot = Slot {
-            location: test_clip(),
+            source: crate::state::SourceKind::File(test_clip()),
             name: "test_smpte.mp4".into(),
             start: -1.0,
             end: -1.0,
@@ -228,7 +234,7 @@ mod tests {
         init_gst();
         let mut p = Player::empty(0, 720, 480);
         let slot = Slot {
-            location: test_clip(),
+            source: crate::state::SourceKind::File(test_clip()),
             name: "test_smpte.mp4".into(),
             start: -1.0,
             end: -1.0,

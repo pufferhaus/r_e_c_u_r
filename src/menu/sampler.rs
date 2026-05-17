@@ -80,6 +80,7 @@ fn fmt_time(s: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::state::SourceKind;
 
     #[test]
     fn nav_clamps() {
@@ -102,7 +103,7 @@ mod tests {
     #[test]
     fn fmt_slot_row_handles_non_ascii() {
         let s = Slot {
-            location: "/clips/日本語ビデオ.mp4".into(),
+            source: SourceKind::File("/clips/日本語ビデオ.mp4".into()),
             name: "日本語ビデオ.mp4".into(),
             start: -1.0,
             end: -1.0,

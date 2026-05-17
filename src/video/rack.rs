@@ -244,7 +244,7 @@ impl RackHandle for PlayerRack {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::Slot;
+    use crate::state::{Slot, SourceKind};
 
     #[test]
     fn trigger_shader_sends_command_when_channel_set() {
@@ -280,7 +280,7 @@ mod tests {
         let mut r = PlayerRack::new(SamplerSettings::default(), 720, 480);
         let mut bank = Bank::empty();
         bank.slots[0] = Some(Slot {
-            location: "/tmp/x.mp4".into(),
+            source: SourceKind::File("/tmp/x.mp4".into()),
             name: "x".into(),
             start: -1.0,
             end: -1.0,

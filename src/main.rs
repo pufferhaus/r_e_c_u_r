@@ -205,7 +205,7 @@ fn main() -> anyhow::Result<()> {
             let p = std::env::current_dir()?.join("assets/test_smpte.mp4");
             if p.exists() {
                 let slot = recur::state::Slot {
-                    location: p,
+                    source: recur::state::SourceKind::File(p),
                     name: "test_smpte.mp4".into(),
                     start: -1.0,
                     end: -1.0,

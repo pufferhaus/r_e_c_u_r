@@ -34,12 +34,13 @@ pub fn get_next_context<R: Rng>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::state::SourceKind;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
     fn s(name: &str) -> Slot {
         Slot {
-            location: format!("/clips/{}", name).into(),
+            source: SourceKind::File(format!("/clips/{}", name).into()),
             name: name.into(),
             start: 0.0,
             end: 1.0,

@@ -3,14 +3,26 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use crate::capture::CaptureDevice;
 use crate::detour::DetourSettings;
 use crate::render::shader_assembly::GlesProfile;
 use crate::shader::ShaderBank;
 use crate::video::{ProbeCache, ProbeRequest};
 
+/// Which media source a slot refers to.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case")]
+pub enum SourceKind {
+    File(PathBuf),
+    Capture(CaptureDevice),
+}
+
+/// A single clip/source slot in a bank.
+// Keep Serialize derived (writes new tagged form); Deserialize is custom for
+// back-compat with the legacy `location = "..."` wire form.
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Slot {
-    pub location: PathBuf,
+    pub source: SourceKind,
     pub name: String,
     /// Loop in (seconds). `-1.0` = unset → defaults to 0.0 at load.
     #[serde(default = "default_unset")]
@@ -23,6 +35,57 @@ pub struct Slot {
     pub length: f64,
     #[serde(default = "default_rate")]
     pub rate: f32,
+}
+
+impl Slot {
+    /// Returns the file path for a `File`-kind slot, `None` for Capture slots.
+    pub fn file_path(&self) -> Option<&std::path::Path> {
+        match &self.source {
+            SourceKind::File(p) => Some(p.as_path()),
+            SourceKind::Capture(_) => None,
+        }
+    }
+}
+
+// Custom Deserialize: accepts both the old (`location = "..."`) and the new
+// (`source = { kind = "file", value = "..." }`) wire forms.
+impl<'de> serde::Deserialize<'de> for Slot {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        #[derive(serde::Deserialize)]
+        struct Wire {
+            #[serde(default)]
+            location: Option<PathBuf>,
+            #[serde(default)]
+            source: Option<SourceKind>,
+            name: String,
+            #[serde(default = "default_unset")]
+            start: f64,
+            #[serde(default = "default_unset")]
+            end: f64,
+            #[serde(default)]
+            length: f64,
+            #[serde(default = "default_rate")]
+            rate: f32,
+        }
+        let w = Wire::deserialize(d)?;
+        let source = match (w.source, w.location) {
+            (Some(s), _) => s,
+            (None, Some(p)) => SourceKind::File(p),
+            (None, None) => {
+                return Err(serde::de::Error::custom(
+                    "slot needs either `source` or `location`",
+                ))
+            }
+        };
+        Ok(Slot {
+            source,
+            name: w.name,
+            start: w.start,
+            end: w.end,
+            length: w.length,
+            rate: w.rate,
+        })
+    }
 }
 
 fn default_unset() -> f64 {
@@ -272,7 +335,7 @@ mod tests {
     fn first_empty_skips_filled_slots() {
         let mut b = Bank::empty();
         b.slots[0] = Some(Slot {
-            location: "/tmp/a.mp4".into(),
+            source: SourceKind::File("/tmp/a.mp4".into()),
             name: "a.mp4".into(),
             start: -1.0,
             end: -1.0,
@@ -287,7 +350,7 @@ mod tests {
         let mut b = Bank::empty();
         for i in 0..10 {
             b.slots[i] = Some(Slot {
-                location: format!("/tmp/{}.mp4", i).into(),
+                source: SourceKind::File(format!("/tmp/{}.mp4", i).into()),
                 name: format!("{}.mp4", i),
                 start: -1.0,
                 end: -1.0,
