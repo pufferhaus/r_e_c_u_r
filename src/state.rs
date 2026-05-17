@@ -185,6 +185,12 @@ pub struct SharedState {
 
     // Detour (Phase 3)
     pub detour: DetourSettings,
+    /// Latest ring stats, updated each frame by main.rs.
+    pub frames_stats_count: usize,
+    pub frames_stats_capacity: usize,
+    pub frames_stats_used_mb: u64,
+    pub frames_stats_budget_mb: u64,
+    pub frames_stats_fps: u32,
 }
 
 impl SharedState {
@@ -209,6 +215,11 @@ impl SharedState {
             probe_cache: ProbeCache::default(),
             probe_tx: None,
             detour: DetourSettings::default(),
+            frames_stats_count: 0,
+            frames_stats_capacity: 0,
+            frames_stats_used_mb: 0,
+            frames_stats_budget_mb: 0,
+            frames_stats_fps: 30,
         }
     }
 

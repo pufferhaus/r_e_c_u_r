@@ -9,12 +9,13 @@ use crate::status::grid::TextGrid;
 use crate::ui::{Screen, ScreenResult};
 
 use super::{
-    browser::BrowserBody, param::ParamBody, sampler::SamplerBody, settings::SettingsBody,
-    shaders::ShadersBody, shdr_bnk::ShdrBnkBody,
+    browser::BrowserBody, frames::FramesBody, param::ParamBody, sampler::SamplerBody,
+    settings::SettingsBody, shaders::ShadersBody, shdr_bnk::ShdrBnkBody,
 };
 
 pub struct RootScreen {
     browser: BrowserBody,
+    frames: FramesBody,
     sampler: SamplerBody,
     settings: SettingsBody,
     shaders: ShadersBody,
@@ -26,6 +27,7 @@ impl RootScreen {
     pub fn new() -> Self {
         Self {
             browser: BrowserBody::new(),
+            frames: FramesBody::new(),
             sampler: SamplerBody::new(),
             settings: SettingsBody::new(),
             shaders: ShadersBody::new(Vec::new(), 0),
@@ -82,7 +84,7 @@ impl Screen for RootScreen {
             DisplayMode::Settings => self.settings.render(state, grid),
             DisplayMode::Shaders => self.shaders.render(state, grid),
             DisplayMode::ShdrBnk => self.shdr_bnk.render(state, grid),
-            DisplayMode::Frames => grid.write_row(10, "      (detour — Phase 3)"),
+            DisplayMode::Frames => self.frames.render(state, grid),
         }
         if state.control_mode == ControlMode::ShaderParam {
             self.param.render(state, grid);
@@ -99,7 +101,7 @@ impl Screen for RootScreen {
             DisplayMode::Settings => self.settings.handle(action, state),
             DisplayMode::Shaders => self.shaders.handle(action, state),
             DisplayMode::ShdrBnk => self.shdr_bnk.handle(action, state),
-            DisplayMode::Frames => ScreenResult::Continue,
+            DisplayMode::Frames => self.frames.handle(action, state),
         }
     }
 }
