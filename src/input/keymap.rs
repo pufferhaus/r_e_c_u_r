@@ -297,5 +297,16 @@ mod tests {
         assert_eq!(km.lookup("KeyK"), Some(Action::EnterMode(DisplayMode::ShdrBnk)));
         assert_eq!(km.lookup("F1"), Some(Action::TriggerShaderSlot(0)));
         assert_eq!(km.lookup("F10"), Some(Action::TriggerShaderSlot(9)));
+        assert_eq!(km.lookup("KeyD"), Some(Action::DetourEnter));
+        assert_eq!(km.lookup("KeyE"), Some(Action::DetourExit));
+        assert_eq!(km.lookup("ArrowLeft"), Some(Action::DetourScrubBy(-1)));
+        assert_eq!(km.lookup("ArrowRight"), Some(Action::DetourScrubBy(1)));
+        assert_eq!(km.lookup("KeyW"), Some(Action::DetourCycleSpeed));
+        assert_eq!(km.lookup("KeyJ"), Some(Action::DetourToggleDirection));
+        assert_eq!(km.lookup("KeyR"), Some(Action::DetourTogglePlay));
+        assert_eq!(km.lookup("KeyN"), Some(Action::DetourSetStartMarker));
+        assert_eq!(km.lookup("KeyP"), Some(Action::DetourSetEndMarker));
+        assert_eq!(km.lookup("KeyX"), Some(Action::DetourClearMarkers));
+        assert_eq!(km.lookup("KeyM"), Some(Action::DetourCycleMix));
     }
 }
