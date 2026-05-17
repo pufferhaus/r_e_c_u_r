@@ -26,7 +26,7 @@ use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::*;
 use glow::HasContext;
 
-use crate::status::grid::{TextGrid, ATTR_INVERSE};
+use crate::status::grid::{TextGrid, ATTR_DIM, ATTR_INVERSE};
 
 // ── Atlas geometry ────────────────────────────────────────────────────────────
 
@@ -368,6 +368,15 @@ impl TextOverlay {
                     (BG, FG)
                 } else {
                     (FG, BG)
+                };
+                // ATTR_DIM mixes fg toward bg by 60% → glyph reads at ~40% brightness.
+                let (fg, bg) = if cell.attr & ATTR_DIM != 0 {
+                    let mix = |a: [f32; 3], b: [f32; 3]| {
+                        [a[0] * 0.4 + b[0] * 0.6, a[1] * 0.4 + b[1] * 0.6, a[2] * 0.4 + b[2] * 0.6]
+                    };
+                    (mix(fg, bg), bg)
+                } else {
+                    (fg, bg)
                 };
 
                 // NDC: x left → right, y top → bottom. We flip y so row 0 is

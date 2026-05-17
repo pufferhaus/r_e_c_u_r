@@ -73,6 +73,24 @@ impl TextGrid {
         }
     }
 
+    /// Set the `ATTR_DIM` bit on every cell in `row`. Idempotent.
+    pub fn dim_row(&mut self, row: usize) {
+        if row >= self.rows {
+            return;
+        }
+        let base = row * self.cols;
+        for col in 0..self.cols {
+            self.cells[base + col].attr |= ATTR_DIM;
+        }
+    }
+
+    /// Set the `ATTR_DIM` bit on a single cell. Out-of-bounds = no-op.
+    pub fn dim_cell(&mut self, row: usize, col: usize) {
+        if row < self.rows && col < self.cols {
+            self.cells[row * self.cols + col].attr |= ATTR_DIM;
+        }
+    }
+
     // --- Lower-level helpers used by status compose and tests ---
 
     pub fn at(&self, row: usize, col: usize) -> Cell {
@@ -181,5 +199,34 @@ mod tests {
         g.write_row(99, "CRASH");
         g.invert_row(99);
         // Just checks no panic
+    }
+
+    #[test]
+    fn dim_row_sets_dim_bit_on_all_cells() {
+        let mut g = TextGrid::new(5, 3);
+        g.write_row(1, "AB");
+        g.dim_row(1);
+        assert!(g.at(1, 0).attr & ATTR_DIM != 0);
+        assert!(g.at(1, 1).attr & ATTR_DIM != 0);
+        assert!(g.at(1, 4).attr & ATTR_DIM != 0);
+        assert!(g.at(0, 0).attr & ATTR_DIM == 0);
+    }
+
+    #[test]
+    fn dim_cell_sets_bit_on_one_cell() {
+        let mut g = TextGrid::new(5, 3);
+        g.dim_cell(2, 3);
+        assert!(g.at(2, 3).attr & ATTR_DIM != 0);
+        assert!(g.at(2, 2).attr & ATTR_DIM == 0);
+    }
+
+    #[test]
+    fn dim_row_combines_with_inverse() {
+        let mut g = TextGrid::new(5, 2);
+        g.write_row(0, "X");
+        g.invert_row(0);
+        g.dim_row(0);
+        assert!(g.at(0, 0).attr & ATTR_INVERSE != 0);
+        assert!(g.at(0, 0).attr & ATTR_DIM != 0);
     }
 }
