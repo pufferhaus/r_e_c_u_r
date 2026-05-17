@@ -45,7 +45,7 @@
 "KeyE" = "DetourExit"
 "KeyW" = "DetourCycleSpeed"
 "KeyJ" = "DetourToggleDirection"
-"KeyR" = "DetourTogglePlay"
+"KeyR" = "RecordToggle"
 "KeyN" = "DetourSetStartMarker"
 "KeyP" = "DetourSetEndMarker"
 "KeyX" = "DetourClearMarkers"

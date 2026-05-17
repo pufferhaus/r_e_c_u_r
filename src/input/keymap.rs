@@ -64,6 +64,19 @@ impl Keymap {
     pub fn entries(&self) -> impl Iterator<Item = (&str, &Action)> {
         self.map.iter().map(|(k, v)| (k.as_str(), v))
     }
+
+    /// Mode-aware lookup. Identical to `lookup` in most cases.
+    /// Override: in `ControlMode::DetourScrub`, a `RecordToggle` binding is
+    /// remapped to `DetourTogglePlay` so scrub mode retains its play-toggle.
+    pub fn lookup_with_mode(&self, key: &str, mode: crate::state::ControlMode) -> Option<Action> {
+        let base = self.lookup(key)?;
+        if mode == crate::state::ControlMode::DetourScrub
+            && matches!(base, Action::RecordToggle)
+        {
+            return Some(Action::DetourTogglePlay);
+        }
+        Some(base)
+    }
 }
 
 /// Parse an action label string like `"TogglePlayPause"`, `"SelectSlot(3)"`,
@@ -158,6 +171,7 @@ fn parse_action(s: &str) -> std::result::Result<Action, ()> {
         "DetourClearMarkers" => Action::DetourClearMarkers,
         "DetourCycleMix" => Action::DetourCycleMix,
         "AddCaptureSlot" => Action::AddCaptureSlot,
+        "RecordToggle" => Action::RecordToggle,
         _ => return Err(()),
     };
     Ok(action)
@@ -287,6 +301,45 @@ mod tests {
     }
 
     #[test]
+    fn key_r_default_mode_resolves_record_toggle() {
+        let s = r#"
+[bindings]
+"KeyR" = "RecordToggle"
+"#;
+        let km = Keymap::parse(s).unwrap();
+        assert_eq!(
+            km.lookup_with_mode("KeyR", crate::state::ControlMode::Default),
+            Some(Action::RecordToggle),
+        );
+    }
+
+    #[test]
+    fn key_r_detour_scrub_mode_resolves_detour_toggle_play() {
+        let s = r#"
+[bindings]
+"KeyR" = "RecordToggle"
+"#;
+        let km = Keymap::parse(s).unwrap();
+        assert_eq!(
+            km.lookup_with_mode("KeyR", crate::state::ControlMode::DetourScrub),
+            Some(Action::DetourTogglePlay),
+        );
+    }
+
+    #[test]
+    fn other_keys_unaffected_by_mode() {
+        let s = r#"
+[bindings]
+"Space" = "TogglePlayPause"
+"#;
+        let km = Keymap::parse(s).unwrap();
+        assert_eq!(
+            km.lookup_with_mode("Space", crate::state::ControlMode::DetourScrub),
+            Some(Action::TogglePlayPause),
+        );
+    }
+
+    #[test]
     fn default_keymap_toml_parses_fully() {
         // Verify that every entry in the shipped keymap.toml is valid.
         let km = Keymap::parse(include_str!("../../keymap.toml")).unwrap();
@@ -311,7 +364,7 @@ mod tests {
         assert_eq!(km.lookup("ArrowRight"), Some(Action::DetourScrubBy(1)));
         assert_eq!(km.lookup("KeyW"), Some(Action::DetourCycleSpeed));
         assert_eq!(km.lookup("KeyJ"), Some(Action::DetourToggleDirection));
-        assert_eq!(km.lookup("KeyR"), Some(Action::DetourTogglePlay));
+        assert_eq!(km.lookup("KeyR"), Some(Action::RecordToggle));
         assert_eq!(km.lookup("KeyN"), Some(Action::DetourSetStartMarker));
         assert_eq!(km.lookup("KeyP"), Some(Action::DetourSetEndMarker));
         assert_eq!(km.lookup("KeyX"), Some(Action::DetourClearMarkers));

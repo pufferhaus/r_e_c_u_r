@@ -13,7 +13,7 @@ use super::keymap::Keymap;
 /// Accumulated input state fed from winit events.
 pub struct WinitSource {
     keymap: Keymap,
-    buffer: Vec<Action>,
+    buffer: Vec<String>, // raw key strings, resolved at poll() time
 }
 
 impl WinitSource {
@@ -30,15 +30,17 @@ impl WinitSource {
             return;
         }
         if let Some(raw) = key_to_raw(&event.logical_key, event.physical_key) {
-            if let Some(action) = self.keymap.lookup(&raw) {
-                self.buffer.push(action);
-            }
+            self.buffer.push(raw);
         }
     }
 
-    /// Drain all accumulated actions since the last call to `poll`.
-    pub fn poll(&mut self) -> Vec<Action> {
-        std::mem::take(&mut self.buffer)
+    /// Resolve all buffered keys against the keymap, using the supplied mode
+    /// for overrides (e.g. `KeyR` remap inside `DetourScrub`). Drains the buffer.
+    pub fn poll(&mut self, mode: crate::state::ControlMode) -> Vec<Action> {
+        let raws = std::mem::take(&mut self.buffer);
+        raws.into_iter()
+            .filter_map(|k| self.keymap.lookup_with_mode(&k, mode))
+            .collect()
     }
 }
 
@@ -130,7 +132,7 @@ mod tests {
     fn poll_on_empty_returns_empty_vec() {
         let km = Keymap::default();
         let mut src = WinitSource::new(km);
-        assert!(src.poll().is_empty());
+        assert!(src.poll(crate::state::ControlMode::Default).is_empty());
     }
 
     #[test]

@@ -241,7 +241,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         #[cfg(feature = "desktop")]
-        let actions: Vec<Action> = input.poll();
+        let actions: Vec<Action> = input.poll(state.control_mode);
 
         #[cfg(not(feature = "desktop"))]
         let actions: Vec<Action> = Vec::new();
