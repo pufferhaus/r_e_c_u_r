@@ -3,9 +3,18 @@
 use tracing::info;
 
 pub fn default_budget_mb_for_build() -> u64 {
-    #[cfg(feature = "pi3")] { return 128; }
-    #[cfg(feature = "pi5")] { return 256; }
-    #[cfg(not(any(feature = "pi3", feature = "pi5")))] { 512 }
+    #[cfg(feature = "pi3")]
+    {
+        return 128;
+    }
+    #[cfg(feature = "pi5")]
+    {
+        return 256;
+    }
+    #[cfg(not(any(feature = "pi3", feature = "pi5")))]
+    {
+        512
+    }
 }
 
 pub fn resolved_budget_bytes(config_mb: Option<u64>) -> usize {

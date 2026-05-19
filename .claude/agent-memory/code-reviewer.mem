@@ -1,0 +1,23 @@
+pat|recur,ui|RootScreen::render creates fresh BrowserBody/SamplerBody/SettingsBody every frame so per-screen selected/scroll state never persists; bodies should be owned by stack|new|1
+pat|recur,rack|PlayerRack stores a cloned Bank at startup; main.rs never re-syncs after browser/load or PrevBank/NextBank → trigger_slot looks at stale slots|new|1
+pat|recur,render|main.rs writes TextGrid but never blits it to GL — text overlay is invisible|new|1
+pat|recur,fmt|fmt_slot_row byte-slices &str at [..min(17)] — panic on multi-byte filenames|new|1
+pat|render,gles,profile|pi.rs load_dir() defaults to V310 filter but default_for_build() may return V100 on pi3 — library filter and compile profile must derive from the same source|1
+pat|serde,toml|Vec<Option<T>> cannot roundtrip through TOML directly; persist.rs uses a wire-type pattern with index-preserving SlotEntry structs — new bank types must follow the same pattern in persist, not derive serde and serialise directly|rev|1
+err|serde,rust|[f32; N] implements Default for N<=32 since Rust 1.47; serde(default) works without a helper function — default_params()-style helpers are redundant|rev|1
+pat|persist,shader|shader_wire_to_bank always starts from ShaderBank::empty() (10-slot Vec), so bank.slots[n] direct indexing in apply() is safe after deserialization|rev|1
+pat|action,stub|RecordToggle Task 1 stub: last_error set in apply.rs placeholder; real impl in Task 9|rev|1
+pat|cfg,features|Cargo features are additive; mutually exclusive targets (pi3/pi5) need compile_error! guards or Cargo conflicts= to prevent both being enabled simultaneously|1
+pat|capture,loop|u32 counter in loop: debug builds panic on overflow at 4B; wrapping_add preferred for unbounded loops|1
+loc|rust,unsafe,statvfs|recording.rs:free_mb uses two minimal unsafe blocks (zeroed+FFI call); zeroed() is correct for POD statvfs struct|1
+pat|rust,test-naming|Test names that say "fail_opens" must actually force the fail-open path; ancestor-walk tests are not the same as statvfs-failure tests|1
+pat|apply,dispatch|apply.rs is a dispatch table (match arms on Action enum) — 800-line file-split threshold applies but "monolithic function" check does not; each arm is a focused mutation|1
+pat|date,no-deps|Howard Hinnant civil-date algo in today_yyyymmdd verified correct for 2025-12-31/2026-01-01/2026-05-17; negative-era branch is unreachable at runtime (epoch always positive) but algorithmically correct|1
+loc|recording|capture recording state machine: src/apply.rs:258 (RecordToggle arm), src/capture/recording.rs (ActiveRecording, RecState, check_disk_space, generate_recording_path)|1
+pat|recording,gst,player|start_recording sync-before-link ordering inconsistent with EOS finalize path "fix #2" comment (player.rs:273 vs 152)|1
+pat|recording,gst,pipeline-factory|splitmuxsink location= not quoted in gst-parse-launch string: fails on path-with-spaces (recording.rs:110)|1
+pat|recording,gst,player|start_recording partial-failure leaves orphan bin in pipeline if placeholder-detach succeeds but pad-link fails (player.rs:280-302)|1
+pat|recording,rack,player|slot-swap/repeat via try_load->unload on a recording capture player aborts recording with no moov atom and leaves active_recording dangling (rack.rs:139,155)|1
+err|recording,state|active_recording invariant: NOT recording_bin.is_some() <-> active_recording.is_some(); during Finalizing, recording_bin is None but active_recording is Some. Corrected: active_recording.is_some() <-> (recording_bin.is_some() OR pending_finalize.is_some())|1
+pat|gst,cleanup|unload tears down full pipeline — not releasing tee request pads on pending_finalize is acceptable since pipeline.set_state(Null) reclaims all pads|rev|1
+pat|gst,recording|ok_or_else closure captures tee pad by ref for release before ? propagates; compiles because gst::Pad is not moved into closure|rev|1

@@ -174,7 +174,9 @@ impl PlayerRack {
     }
 
     pub fn drain_last_error(&mut self) -> Option<String> {
-        self.last.last_error.take()
+        self.last
+            .last_error
+            .take()
             .or_else(|| self.current.last_error.take())
             .or_else(|| self.next.last_error.take())
     }
@@ -290,7 +292,9 @@ mod tests {
         use crate::apply::RackHandle;
         r.trigger_shader("color_shift", [0.5; 8]);
         r.clear_shader();
-        assert!(matches!(rx.try_recv(), Ok(ShaderCommand::Trigger(name, _)) if name == "color_shift"));
+        assert!(
+            matches!(rx.try_recv(), Ok(ShaderCommand::Trigger(name, _)) if name == "color_shift")
+        );
         assert!(matches!(rx.try_recv(), Ok(ShaderCommand::Clear)));
     }
 

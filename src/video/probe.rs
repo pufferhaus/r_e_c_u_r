@@ -283,7 +283,10 @@ mod tests {
         let p = PathBuf::from("/file.mp4");
         cache.insert(&p, 100, CodecStatus::Supported("h264".into()));
         assert_eq!(cache.get_with_mtime(&p, 200), None);
-        assert_eq!(cache.get_with_mtime(&p, 100), Some(CodecStatus::Supported("h264".into())));
+        assert_eq!(
+            cache.get_with_mtime(&p, 100),
+            Some(CodecStatus::Supported("h264".into()))
+        );
     }
 
     #[test]

@@ -16,7 +16,11 @@ pub struct Ring {
 impl Ring {
     pub fn new(width: u32, height: u32, budget_bytes: usize) -> Self {
         let bytes_per_frame = (width as usize) * (height as usize) * 4;
-        let capacity = if bytes_per_frame == 0 { 0 } else { budget_bytes / bytes_per_frame };
+        let capacity = if bytes_per_frame == 0 {
+            0
+        } else {
+            budget_bytes / bytes_per_frame
+        };
         let slab = vec![0u8; capacity * bytes_per_frame].into_boxed_slice();
         Self {
             slab,
@@ -59,11 +63,21 @@ impl Ring {
         Some(&self.slab[offset..offset + self.bytes_per_frame])
     }
 
-    pub fn capacity(&self) -> usize { self.capacity }
-    pub fn count(&self) -> usize { self.count }
-    pub fn bytes_per_frame(&self) -> usize { self.bytes_per_frame }
-    pub fn width(&self) -> u32 { self.width }
-    pub fn height(&self) -> u32 { self.height }
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+    pub fn count(&self) -> usize {
+        self.count
+    }
+    pub fn bytes_per_frame(&self) -> usize {
+        self.bytes_per_frame
+    }
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+    pub fn height(&self) -> u32 {
+        self.height
+    }
 
     pub fn latest_ring_index(&self) -> usize {
         self.count.saturating_sub(1)

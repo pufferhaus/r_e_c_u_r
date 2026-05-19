@@ -18,13 +18,25 @@ impl ShdrBnkBody {
 impl Screen for ShdrBnkBody {
     fn render(&self, state: &SharedState, grid: &mut TextGrid) {
         let bank = state.current_shader_bank();
-        grid.write_row(4, &format!("{:>6} {:<28} {:<5}", format!("{}-slot", state.shader_bank_number), "shader", "act"));
+        grid.write_row(
+            4,
+            &format!(
+                "{:>6} {:<28} {:<5}",
+                format!("{}-slot", state.shader_bank_number),
+                "shader",
+                "act"
+            ),
+        );
         for (i, opt) in bank.slots.iter().enumerate() {
             let row_idx = 5 + i;
             let line = match opt {
                 None => format!("{:^6} {:<28} {:<5}", i, "", ""),
                 Some(s) => {
-                    let active_marker = if state.shader_active_slot == Some(i as u8) { "ON" } else { "" };
+                    let active_marker = if state.shader_active_slot == Some(i as u8) {
+                        "ON"
+                    } else {
+                        ""
+                    };
                     let truncated: String = s.shader.chars().take(28).collect();
                     format!("{:^6} {:<28} {:<5}", i, truncated, active_marker)
                 }
@@ -45,7 +57,13 @@ impl Screen for ShdrBnkBody {
                 // pipeline activates (not just state.shader_active_slot).
                 // Mapping happens via SelectShaderSlot from SHADERS browser.
                 let n = self.selected as usize;
-                if state.current_shader_bank().slots.get(n).and_then(|o| o.as_ref()).is_some() {
+                if state
+                    .current_shader_bank()
+                    .slots
+                    .get(n)
+                    .and_then(|o| o.as_ref())
+                    .is_some()
+                {
                     return ScreenResult::Action(Action::TriggerShaderSlot(n as u8));
                 }
             }
@@ -80,7 +98,9 @@ mod tests {
             params: [0.0; 8],
         });
         let mut b = ShdrBnkBody::new();
-        for _ in 0..3 { b.handle(Action::NavDown, &mut s); }
+        for _ in 0..3 {
+            b.handle(Action::NavDown, &mut s);
+        }
         let result = b.handle(Action::Enter, &mut s);
         match result {
             ScreenResult::Action(Action::TriggerShaderSlot(3)) => (),

@@ -70,9 +70,7 @@ impl Keymap {
     /// remapped to `DetourTogglePlay` so scrub mode retains its play-toggle.
     pub fn lookup_with_mode(&self, key: &str, mode: crate::state::ControlMode) -> Option<Action> {
         let base = self.lookup(key)?;
-        if mode == crate::state::ControlMode::DetourScrub
-            && matches!(base, Action::RecordToggle)
-        {
+        if mode == crate::state::ControlMode::DetourScrub && matches!(base, Action::RecordToggle) {
             return Some(Action::DetourTogglePlay);
         }
         Some(base)
@@ -83,11 +81,17 @@ impl Keymap {
 /// `"EnterMode(Browser)"`.
 fn parse_action(s: &str) -> std::result::Result<Action, ()> {
     // Parenthesized variants.
-    if let Some(rest) = s.strip_prefix("SelectSlot(").and_then(|r| r.strip_suffix(')')) {
+    if let Some(rest) = s
+        .strip_prefix("SelectSlot(")
+        .and_then(|r| r.strip_suffix(')'))
+    {
         let n: u8 = rest.parse().map_err(|_| ())?;
         return Ok(Action::SelectSlot(n));
     }
-    if let Some(rest) = s.strip_prefix("EnterMode(").and_then(|r| r.strip_suffix(')')) {
+    if let Some(rest) = s
+        .strip_prefix("EnterMode(")
+        .and_then(|r| r.strip_suffix(')'))
+    {
         let mode = match rest {
             "Browser" => DisplayMode::Browser,
             "Sampler" => DisplayMode::Sampler,
@@ -99,7 +103,10 @@ fn parse_action(s: &str) -> std::result::Result<Action, ()> {
         };
         return Ok(Action::EnterMode(mode));
     }
-    if let Some(rest) = s.strip_prefix("SeekRelative(").and_then(|r| r.strip_suffix(')')) {
+    if let Some(rest) = s
+        .strip_prefix("SeekRelative(")
+        .and_then(|r| r.strip_suffix(')'))
+    {
         let v: f64 = rest.parse().map_err(|_| ())?;
         return Ok(Action::SeekRelative(v));
     }
@@ -107,27 +114,45 @@ fn parse_action(s: &str) -> std::result::Result<Action, ()> {
         let v: f32 = rest.parse().map_err(|_| ())?;
         return Ok(Action::SetRate(v));
     }
-    if let Some(rest) = s.strip_prefix("SelectShaderSlot(").and_then(|r| r.strip_suffix(')')) {
+    if let Some(rest) = s
+        .strip_prefix("SelectShaderSlot(")
+        .and_then(|r| r.strip_suffix(')'))
+    {
         let n: u8 = rest.parse().map_err(|_| ())?;
         return Ok(Action::SelectShaderSlot(n));
     }
-    if let Some(rest) = s.strip_prefix("TriggerShaderSlot(").and_then(|r| r.strip_suffix(')')) {
+    if let Some(rest) = s
+        .strip_prefix("TriggerShaderSlot(")
+        .and_then(|r| r.strip_suffix(')'))
+    {
         let n: u8 = rest.parse().map_err(|_| ())?;
         return Ok(Action::TriggerShaderSlot(n));
     }
-    if let Some(rest) = s.strip_prefix("ShaderParamAdjust(").and_then(|r| r.strip_suffix(')')) {
+    if let Some(rest) = s
+        .strip_prefix("ShaderParamAdjust(")
+        .and_then(|r| r.strip_suffix(')'))
+    {
         let n: i8 = rest.parse().map_err(|_| ())?;
         return Ok(Action::ShaderParamAdjust(n));
     }
-    if let Some(rest) = s.strip_prefix("ShaderParamSelect(").and_then(|r| r.strip_suffix(')')) {
+    if let Some(rest) = s
+        .strip_prefix("ShaderParamSelect(")
+        .and_then(|r| r.strip_suffix(')'))
+    {
         let n: u8 = rest.parse().map_err(|_| ())?;
         return Ok(Action::ShaderParamSelect(n));
     }
-    if let Some(rest) = s.strip_prefix("DetourScrubBy(").and_then(|r| r.strip_suffix(')')) {
+    if let Some(rest) = s
+        .strip_prefix("DetourScrubBy(")
+        .and_then(|r| r.strip_suffix(')'))
+    {
         let n: i32 = rest.parse().map_err(|_| ())?;
         return Ok(Action::DetourScrubBy(n));
     }
-    if let Some(rest) = s.strip_prefix("CycleSetting(").and_then(|r| r.strip_suffix(')')) {
+    if let Some(rest) = s
+        .strip_prefix("CycleSetting(")
+        .and_then(|r| r.strip_suffix(')'))
+    {
         let id = match rest {
             "LoopType" => SettingId::LoopType,
             "OnFinish" => SettingId::OnFinish,
@@ -214,7 +239,10 @@ mod tests {
     #[test]
     fn enter_mode_browser() {
         let km = Keymap::parse(SAMPLE).unwrap();
-        assert_eq!(km.lookup("KeyB"), Some(Action::EnterMode(DisplayMode::Browser)));
+        assert_eq!(
+            km.lookup("KeyB"),
+            Some(Action::EnterMode(DisplayMode::Browser))
+        );
     }
 
     #[test]
@@ -260,7 +288,10 @@ mod tests {
     fn parses_enter_mode_shdr_bnk() {
         let s = "[bindings]\n\"KeyK\" = \"EnterMode(ShdrBnk)\"\n";
         let km = Keymap::parse(s).unwrap();
-        assert_eq!(km.lookup("KeyK"), Some(Action::EnterMode(DisplayMode::ShdrBnk)));
+        assert_eq!(
+            km.lookup("KeyK"),
+            Some(Action::EnterMode(DisplayMode::ShdrBnk))
+        );
     }
 
     #[test]
@@ -351,11 +382,20 @@ mod tests {
         assert_eq!(km.lookup("BracketRight"), Some(Action::SetLoopOut));
         assert_eq!(km.lookup("Backslash"), Some(Action::ClearLoop));
         assert_eq!(km.lookup("ArrowUp"), Some(Action::NavUp));
-        assert_eq!(km.lookup("KeyB"), Some(Action::EnterMode(DisplayMode::Browser)));
+        assert_eq!(
+            km.lookup("KeyB"),
+            Some(Action::EnterMode(DisplayMode::Browser))
+        );
         assert_eq!(km.lookup("Escape"), Some(Action::Back));
         assert_eq!(km.lookup("ShiftLeft"), Some(Action::ToggleFunction));
-        assert_eq!(km.lookup("KeyH"), Some(Action::EnterMode(DisplayMode::Shaders)));
-        assert_eq!(km.lookup("KeyK"), Some(Action::EnterMode(DisplayMode::ShdrBnk)));
+        assert_eq!(
+            km.lookup("KeyH"),
+            Some(Action::EnterMode(DisplayMode::Shaders))
+        );
+        assert_eq!(
+            km.lookup("KeyK"),
+            Some(Action::EnterMode(DisplayMode::ShdrBnk))
+        );
         assert_eq!(km.lookup("F1"), Some(Action::TriggerShaderSlot(0)));
         assert_eq!(km.lookup("F10"), Some(Action::TriggerShaderSlot(9)));
         assert_eq!(km.lookup("KeyD"), Some(Action::DetourEnter));

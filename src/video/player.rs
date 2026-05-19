@@ -99,9 +99,9 @@ impl Player {
                 pipeline_factory::build_for_capture(d, self.render_width, self.render_height)?
             }
         };
-        pipeline.set_state(gst::State::Paused).map_err(|e| {
-            crate::Error::Gst(format!("set_state Paused: {e}"))
-        })?;
+        pipeline
+            .set_state(gst::State::Paused)
+            .map_err(|e| crate::Error::Gst(format!("set_state Paused: {e}")))?;
         self.pipeline = Some(pipeline);
         self.appsink = Some(appsink);
         self.slot = Some(slot);
@@ -142,9 +142,10 @@ impl Player {
                             let _ = pipeline.remove(&bin);
                             // Re-attach the placeholder fakesink to the tee:
                             // LINK FIRST, then sync state (fix #2).
-                            if let (Some(ph), Some(tee)) =
-                                (pipeline.by_name("rec_placeholder"), pipeline.by_name("cap_t"))
-                            {
+                            if let (Some(ph), Some(tee)) = (
+                                pipeline.by_name("rec_placeholder"),
+                                pipeline.by_name("cap_t"),
+                            ) {
                                 if let (Some(tee_src), Some(ph_sink)) =
                                     (tee.request_pad_simple("src_%u"), ph.static_pad("sink"))
                                 {
@@ -165,7 +166,11 @@ impl Player {
                     }
                 }
                 Error(e) => {
-                    let msg = format!("gst error from {:?}: {}", e.src().map(|s| s.name()), e.error());
+                    let msg = format!(
+                        "gst error from {:?}: {}",
+                        e.src().map(|s| s.name()),
+                        e.error()
+                    );
                     warn!("{msg}");
                     self.last_error = Some(msg);
                     self.status = PlayerStatus::Error;
@@ -250,7 +255,12 @@ impl Player {
         let w: i32 = s.get("width").ok()?;
         let h: i32 = s.get("height").ok()?;
         let map = buffer.into_mapped_buffer_readable().ok()?;
-        Some(VideoFrame { _sample: sample, map, width: w as u32, height: h as u32 })
+        Some(VideoFrame {
+            _sample: sample,
+            map,
+            width: w as u32,
+            height: h as u32,
+        })
     }
 
     /// Phase 4b — attach a record bin to the live capture pipeline's `cap_t`
@@ -262,9 +272,7 @@ impl Player {
         target: crate::capture::recording::Target,
     ) -> Result<()> {
         if self.recording_bin.is_some() {
-            return Err(crate::Error::Gst(
-                "already recording on this player".into(),
-            ));
+            return Err(crate::Error::Gst("already recording on this player".into()));
         }
         let pipeline = self
             .pipeline
@@ -314,13 +322,11 @@ impl Player {
             let tee_src = tee
                 .request_pad_simple("src_%u")
                 .ok_or_else(|| crate::Error::Gst("tee.request_pad failed".into()))?;
-            let bin_sink = bin
-                .static_pad("sink")
-                .ok_or_else(|| {
-                    // Release the just-acquired tee pad before bubbling up.
-                    tee.release_request_pad(&tee_src);
-                    crate::Error::Gst("record bin has no sink ghost".into())
-                })?;
+            let bin_sink = bin.static_pad("sink").ok_or_else(|| {
+                // Release the just-acquired tee pad before bubbling up.
+                tee.release_request_pad(&tee_src);
+                crate::Error::Gst("record bin has no sink ghost".into())
+            })?;
             if let Err(e) = tee_src.link(&bin_sink) {
                 tee.release_request_pad(&tee_src);
                 return Err(crate::Error::Gst(format!("tee->bin link: {e:?}")));
@@ -400,10 +406,7 @@ impl Player {
         let Some(slot) = &self.slot else { return };
         let start_s = if slot.start > 0.0 { slot.start } else { 0.0 };
         let pos = gst::ClockTime::from_seconds_f64(start_s);
-        let _ = p.seek_simple(
-            gst::SeekFlags::FLUSH | gst::SeekFlags::ACCURATE,
-            pos,
-        );
+        let _ = p.seek_simple(gst::SeekFlags::FLUSH | gst::SeekFlags::ACCURATE, pos);
     }
 }
 
@@ -481,7 +484,10 @@ mod tests {
         for _ in 0..200 {
             p.tick();
             if let Some(frame) = p.pull_latest_rgba() {
-                assert_eq!(frame.data().len(), (frame.width * frame.height * 4) as usize);
+                assert_eq!(
+                    frame.data().len(),
+                    (frame.width * frame.height * 4) as usize
+                );
                 assert_eq!(frame.width, 720);
                 assert_eq!(frame.height, 480);
                 return;

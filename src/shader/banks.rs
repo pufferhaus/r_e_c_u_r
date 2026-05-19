@@ -25,7 +25,9 @@ pub struct ShaderBank {
 
 impl ShaderBank {
     pub fn empty() -> Self {
-        Self { slots: (0..SHADER_SLOTS_PER_BANK).map(|_| None).collect() }
+        Self {
+            slots: (0..SHADER_SLOTS_PER_BANK).map(|_| None).collect(),
+        }
     }
 
     pub fn first_empty(&self) -> Option<usize> {

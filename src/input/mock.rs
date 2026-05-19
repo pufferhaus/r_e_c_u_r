@@ -14,9 +14,9 @@
 
 use std::time::Duration;
 
-use crate::error::{Error, Result};
 use super::keymap::Keymap;
 use crate::action::Action;
+use crate::error::{Error, Result};
 
 #[derive(Debug, Clone)]
 struct ScriptedEvent {
@@ -45,7 +45,11 @@ impl MockInput {
             let evt = parse_line(line, lineno + 1)?;
             events.push(evt);
         }
-        Ok(Self { events, keymap: None, cursor: 0 })
+        Ok(Self {
+            events,
+            keymap: None,
+            cursor: 0,
+        })
     }
 
     /// Attach a keymap so that `drain_until` can resolve keys to actions.
@@ -132,10 +136,8 @@ mod tests {
     use crate::input::keymap::Keymap;
 
     fn sample_keymap() -> Keymap {
-        Keymap::parse(
-            "[bindings]\n\"Space\" = \"TogglePlayPause\"\n\"Enter\" = \"Enter\"\n",
-        )
-        .unwrap()
+        Keymap::parse("[bindings]\n\"Space\" = \"TogglePlayPause\"\n\"Enter\" = \"Enter\"\n")
+            .unwrap()
     }
 
     #[test]

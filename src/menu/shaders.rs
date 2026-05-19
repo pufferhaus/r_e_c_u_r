@@ -15,7 +15,11 @@ pub struct ShadersBody {
 
 impl ShadersBody {
     pub fn new(names: Vec<String>, filtered: usize) -> Self {
-        Self { names, filtered, selected: 0 }
+        Self {
+            names,
+            filtered,
+            selected: 0,
+        }
     }
 }
 
@@ -36,7 +40,11 @@ impl Screen for ShadersBody {
             }
         }
         let footer = if self.filtered > 0 {
-            format!("{} shown, {} hidden (pi5-only)", self.names.len(), self.filtered)
+            format!(
+                "{} shown, {} hidden (pi5-only)",
+                self.names.len(),
+                self.filtered
+            )
         } else {
             format!("{} shaders", self.names.len())
         };

@@ -134,7 +134,10 @@ mod tests {
     #[test]
     fn push_makes_stack_open() {
         let mut s = ScreenStack::new();
-        s.push(Box::new(Dummy { pops_after: 99, count: 0 }));
+        s.push(Box::new(Dummy {
+            pops_after: 99,
+            count: 0,
+        }));
         assert!(s.is_open());
         assert_eq!(s.depth(), 1);
     }
@@ -142,7 +145,10 @@ mod tests {
     #[test]
     fn pop_result_closes_screen() {
         let mut s = ScreenStack::new();
-        s.push(Box::new(Dummy { pops_after: 1, count: 0 }));
+        s.push(Box::new(Dummy {
+            pops_after: 1,
+            count: 0,
+        }));
         let mut state = SharedState::new();
         let synth = s.dispatch(Action::Back, &mut state);
         assert_eq!(synth, None);
@@ -155,7 +161,10 @@ mod tests {
         impl Screen for Pusher {
             fn render(&self, _: &SharedState, _: &mut TextGrid) {}
             fn handle(&mut self, _: Action, _: &mut SharedState) -> ScreenResult {
-                ScreenResult::Push(Box::new(Dummy { pops_after: 99, count: 0 }))
+                ScreenResult::Push(Box::new(Dummy {
+                    pops_after: 99,
+                    count: 0,
+                }))
             }
         }
         let mut s = ScreenStack::new();
@@ -168,8 +177,14 @@ mod tests {
     #[test]
     fn close_all_empties_stack() {
         let mut s = ScreenStack::new();
-        s.push(Box::new(Dummy { pops_after: 99, count: 0 }));
-        s.push(Box::new(Dummy { pops_after: 99, count: 0 }));
+        s.push(Box::new(Dummy {
+            pops_after: 99,
+            count: 0,
+        }));
+        s.push(Box::new(Dummy {
+            pops_after: 99,
+            count: 0,
+        }));
         s.close_all();
         assert!(!s.is_open());
     }

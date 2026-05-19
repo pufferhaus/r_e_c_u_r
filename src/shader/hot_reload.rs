@@ -25,19 +25,23 @@ pub struct ShaderWatcher {
 impl ShaderWatcher {
     pub fn start(dir: &Path) -> notify::Result<Self> {
         let (tx, rx) = unbounded();
-        let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
-            if let Ok(ev) = res {
-                if matches!(ev.kind, EventKind::Modify(_) | EventKind::Create(_)) {
-                    for p in ev.paths {
-                        if let Some(name) = shader_name_from_path(&p) {
-                            let _ = tx.send(ShaderEvent::Dirty(name));
+        let mut watcher =
+            notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
+                if let Ok(ev) = res {
+                    if matches!(ev.kind, EventKind::Modify(_) | EventKind::Create(_)) {
+                        for p in ev.paths {
+                            if let Some(name) = shader_name_from_path(&p) {
+                                let _ = tx.send(ShaderEvent::Dirty(name));
+                            }
                         }
                     }
                 }
-            }
-        })?;
+            })?;
         watcher.watch(dir, RecursiveMode::NonRecursive)?;
-        Ok(Self { rx, _watcher: watcher })
+        Ok(Self {
+            rx,
+            _watcher: watcher,
+        })
     }
 
     pub fn try_drain(&self) -> Vec<ShaderEvent> {
@@ -64,11 +68,26 @@ mod tests {
 
     #[test]
     fn shader_name_from_path_picks_stems() {
-        assert_eq!(shader_name_from_path(Path::new("/a/foo.glsl")).as_deref(), Some("foo"));
-        assert_eq!(shader_name_from_path(Path::new("/a/foo.toml")).as_deref(), Some("foo"));
-        assert_eq!(shader_name_from_path(Path::new("/a/_prelude.glsl")).as_deref(), None);
-        assert_eq!(shader_name_from_path(Path::new("/a/foo.vert")).as_deref(), None);
-        assert_eq!(shader_name_from_path(Path::new("/a/foo.txt")).as_deref(), None);
+        assert_eq!(
+            shader_name_from_path(Path::new("/a/foo.glsl")).as_deref(),
+            Some("foo")
+        );
+        assert_eq!(
+            shader_name_from_path(Path::new("/a/foo.toml")).as_deref(),
+            Some("foo")
+        );
+        assert_eq!(
+            shader_name_from_path(Path::new("/a/_prelude.glsl")).as_deref(),
+            None
+        );
+        assert_eq!(
+            shader_name_from_path(Path::new("/a/foo.vert")).as_deref(),
+            None
+        );
+        assert_eq!(
+            shader_name_from_path(Path::new("/a/foo.txt")).as_deref(),
+            None
+        );
     }
 
     #[test]
@@ -80,7 +99,9 @@ mod tests {
         std::thread::sleep(Duration::from_millis(500));
         let events = w.try_drain();
         assert!(
-            events.iter().any(|e| matches!(e, ShaderEvent::Dirty(n) if n == "color_shift")),
+            events
+                .iter()
+                .any(|e| matches!(e, ShaderEvent::Dirty(n) if n == "color_shift")),
             "expected Dirty(\"color_shift\"), got {events:?}"
         );
     }

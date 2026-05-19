@@ -140,7 +140,9 @@ impl TextGrid {
         if row >= self.rows {
             return String::new();
         }
-        (0..self.cols).map(|c| self.cells[row * self.cols + c].ch).collect()
+        (0..self.cols)
+            .map(|c| self.cells[row * self.cols + c].ch)
+            .collect()
     }
 }
 

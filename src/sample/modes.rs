@@ -8,10 +8,18 @@ use crate::state::{SamplerSettings, Slot};
 /// `fixed_length_mode` clamps end to `start + fixed_length * fixed_length_multiply`.
 pub fn effective_end(slot: &Slot, settings: &SamplerSettings) -> f64 {
     let start = if slot.start > 0.0 { slot.start } else { 0.0 };
-    let user_end = if slot.end > 0.0 { slot.end } else { slot.length };
+    let user_end = if slot.end > 0.0 {
+        slot.end
+    } else {
+        slot.length
+    };
     if settings.fixed_length_mode && settings.fixed_length > 0.0 {
         let fl = settings.fixed_length * settings.fixed_length_multiply as f64;
-        (start + fl).min(if slot.length > 0.0 { slot.length } else { f64::MAX })
+        (start + fl).min(if slot.length > 0.0 {
+            slot.length
+        } else {
+            f64::MAX
+        })
     } else {
         user_end
     }

@@ -116,7 +116,9 @@ pub fn apply<R: RackHandle>(action: Action, state: &mut SharedState, rack: &mut 
         }
         Action::SetLoopIn => {
             if let (Some(pos), Some((b, s))) = (rack.current_position(), rack.current_binding()) {
-                if let Some(Some(slot)) = state.banks.get_mut(b as usize)
+                if let Some(Some(slot)) = state
+                    .banks
+                    .get_mut(b as usize)
                     .and_then(|bank| bank.slots.get_mut(s as usize))
                 {
                     // Only accept if pos is before the current end (or end is unset).
@@ -128,7 +130,9 @@ pub fn apply<R: RackHandle>(action: Action, state: &mut SharedState, rack: &mut 
         }
         Action::SetLoopOut => {
             if let (Some(pos), Some((b, s))) = (rack.current_position(), rack.current_binding()) {
-                if let Some(Some(slot)) = state.banks.get_mut(b as usize)
+                if let Some(Some(slot)) = state
+                    .banks
+                    .get_mut(b as usize)
                     .and_then(|bank| bank.slots.get_mut(s as usize))
                 {
                     // Only accept if pos is after the current start (or start is unset).
@@ -140,7 +144,9 @@ pub fn apply<R: RackHandle>(action: Action, state: &mut SharedState, rack: &mut 
         }
         Action::ClearLoop => {
             if let Some((b, s)) = rack.current_binding() {
-                if let Some(slot) = state.banks.get_mut(b as usize)
+                if let Some(slot) = state
+                    .banks
+                    .get_mut(b as usize)
                     .and_then(|bank| bank.slots.get_mut(s as usize))
                     .and_then(|opt| opt.as_mut())
                 {
@@ -257,8 +263,7 @@ pub fn apply<R: RackHandle>(action: Action, state: &mut SharedState, rack: &mut 
         }
         Action::RecordToggle => {
             use crate::capture::recording::{
-                ActiveRecording, RecState, Target,
-                check_disk_space, generate_recording_path,
+                check_disk_space, generate_recording_path, ActiveRecording, RecState, Target,
             };
             use std::time::Instant;
 
@@ -285,7 +290,8 @@ pub fn apply<R: RackHandle>(action: Action, state: &mut SharedState, rack: &mut 
                     // Discover the active capture device by checking the rack's
                     // current binding against the bank's slot table.
                     let device_path: Option<String> = rack.current_binding().and_then(|(b, s)| {
-                        state.banks
+                        state
+                            .banks
                             .get(b as usize)?
                             .slots
                             .get(s as usize)?
@@ -336,7 +342,9 @@ pub fn apply<R: RackHandle>(action: Action, state: &mut SharedState, rack: &mut 
             if state.control_mode != ControlMode::ShaderParam {
                 return;
             }
-            let Some(active) = state.shader_active_slot else { return; };
+            let Some(active) = state.shader_active_slot else {
+                return;
+            };
             let bank_idx = state.shader_bank_number as usize;
             let focus = state.shader_focus as usize;
             let mut updated_params: Option<[f32; 8]> = None;
@@ -488,7 +496,13 @@ mod tests {
         fn reload_all(&mut self) {
             self.reload_count += 1;
         }
-        fn trigger_slot_with(&mut self, bank: u8, slot_idx: u8, slot: Slot, _bank_snapshot: crate::state::Bank) {
+        fn trigger_slot_with(
+            &mut self,
+            bank: u8,
+            slot_idx: u8,
+            slot: Slot,
+            _bank_snapshot: crate::state::Bank,
+        ) {
             self.trigger_calls.push((bank, slot_idx, slot.name.clone()));
             self.binding = Some((bank, slot_idx));
         }
@@ -758,7 +772,10 @@ mod tests {
         s.function_on = true;
         let mut r = SpyRack::default();
         apply(Action::TriggerShaderSlot(0), &mut s, &mut r);
-        assert!(!s.function_on, "TriggerShaderSlot must clear function_on like SelectSlot does");
+        assert!(
+            !s.function_on,
+            "TriggerShaderSlot must clear function_on like SelectSlot does"
+        );
     }
 
     #[test]
@@ -878,7 +895,10 @@ mod tests {
                 label: format!("test:{path}"),
             }),
             name: format!("test:{path}"),
-            start: -1.0, end: -1.0, length: 0.0, rate: 1.0,
+            start: -1.0,
+            end: -1.0,
+            length: 0.0,
+            rate: 1.0,
         }
     }
 
@@ -904,11 +924,18 @@ mod tests {
         // Trigger slot 0 first so the rack knows it's the active source.
         apply(Action::SelectSlot(0), &mut s, &mut r);
         apply(Action::RecordToggle, &mut s, &mut r);
-        assert!(s.active_recording.is_some(), "last_error: {:?}", s.last_error);
+        assert!(
+            s.active_recording.is_some(),
+            "last_error: {:?}",
+            s.last_error
+        );
         let rec = s.active_recording.as_ref().unwrap();
         assert_eq!(rec.device_path, "/dev/video0");
-        assert!(rec.file_path.starts_with(tmp.path().join("recordings")),
-            "file_path: {:?}", rec.file_path);
+        assert!(
+            rec.file_path.starts_with(tmp.path().join("recordings")),
+            "file_path: {:?}",
+            rec.file_path
+        );
         assert_eq!(r.record_starts, 1);
     }
 
@@ -922,7 +949,10 @@ mod tests {
         apply(Action::SelectSlot(0), &mut s, &mut r);
         apply(Action::RecordToggle, &mut s, &mut r);
         apply(Action::RecordToggle, &mut s, &mut r);
-        let rec = s.active_recording.as_ref().expect("still tracking until finalize");
+        let rec = s
+            .active_recording
+            .as_ref()
+            .expect("still tracking until finalize");
         assert_eq!(rec.state, crate::capture::recording::RecState::Finalizing);
         assert_eq!(r.record_stops, 1);
     }
@@ -956,7 +986,9 @@ mod tests {
             assert!(s.last_error.as_deref().unwrap_or("").contains("no capture"));
         } else {
             // macOS / Linux with cameras: slot 0 populated with a Capture kind.
-            let slot = s.banks[0].slots[0].as_ref().expect("slot 0 should populate");
+            let slot = s.banks[0].slots[0]
+                .as_ref()
+                .expect("slot 0 should populate");
             match &slot.source {
                 crate::state::SourceKind::Capture(d) => {
                     assert_eq!(d.path, devs[0].path);

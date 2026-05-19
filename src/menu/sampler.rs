@@ -19,13 +19,17 @@ impl Screen for SamplerBody {
     fn render(&self, state: &SharedState, grid: &mut TextGrid) {
         let bank = state.current_bank();
         // Row 5 — column header.
-        grid.write_row(4, &format!("{:>6} {:<17} {:>5} {:>5} {:<5}",
-            format!("{}-slot", state.bank_number),
-            "name",
-            "length",
-            "start",
-            "end",
-        ));
+        grid.write_row(
+            4,
+            &format!(
+                "{:>6} {:<17} {:>5} {:>5} {:<5}",
+                format!("{}-slot", state.bank_number),
+                "name",
+                "length",
+                "start",
+                "end",
+            ),
+        );
         let rec = state.active_recording.as_ref();
         for (i, opt) in bank.slots.iter().enumerate() {
             let row_idx = 5 + i; // body rows 5..14 (10 rows)
@@ -71,10 +75,16 @@ fn fmt_slot_row_with_record_state(
         }
         crate::state::SourceKind::Capture(d) => {
             let is_recording_this = rec
-                .filter(|r| r.device_path == d.path
-                    && r.state == crate::capture::recording::RecState::Recording)
+                .filter(|r| {
+                    r.device_path == d.path
+                        && r.state == crate::capture::recording::RecState::Recording
+                })
                 .is_some();
-            let prefix = if is_recording_this { "[cap][REC] " } else { "[cap] " };
+            let prefix = if is_recording_this {
+                "[cap][REC] "
+            } else {
+                "[cap] "
+            };
             format!("{}{}", prefix, s.name).chars().take(17).collect()
         }
     };
@@ -145,7 +155,10 @@ mod tests {
                 label: "v4l2:video0".into(),
             }),
             name: "v4l2:video0".into(),
-            start: -1.0, end: -1.0, length: 0.0, rate: 1.0,
+            start: -1.0,
+            end: -1.0,
+            length: 0.0,
+            rate: 1.0,
         };
         let row = fmt_slot_row(0, &s);
         assert!(row.contains("[cap]"), "got: {row}");
@@ -162,7 +175,10 @@ mod tests {
                 label: "v4l2:video0".into(),
             }),
             name: "v4l2:video0".into(),
-            start: -1.0, end: -1.0, length: 0.0, rate: 1.0,
+            start: -1.0,
+            end: -1.0,
+            length: 0.0,
+            rate: 1.0,
         };
         let row = fmt_slot_row_with_record_state(
             0,
@@ -190,7 +206,10 @@ mod tests {
                 label: "v4l2:video0".into(),
             }),
             name: "v4l2:video0".into(),
-            start: -1.0, end: -1.0, length: 0.0, rate: 1.0,
+            start: -1.0,
+            end: -1.0,
+            length: 0.0,
+            rate: 1.0,
         };
         let row = fmt_slot_row_with_record_state(
             0,
@@ -204,6 +223,9 @@ mod tests {
             }),
         );
         assert!(row.contains("[cap]"), "row: {row}");
-        assert!(!row.contains("[REC]"), "row should NOT contain [REC]: {row}");
+        assert!(
+            !row.contains("[REC]"),
+            "row should NOT contain [REC]: {row}"
+        );
     }
 }

@@ -35,7 +35,12 @@ impl Screen for ParamBody {
         };
         for i in 0..8 {
             let row = 5 + i;
-            let line = format!("{:^5}  {:<16}  {:>+.3}", i, format!("u_param{i}"), slot.params[i]);
+            let line = format!(
+                "{:^5}  {:<16}  {:>+.3}",
+                i,
+                format!("u_param{i}"),
+                slot.params[i]
+            );
             grid.write_row(row, &line);
             if i as u8 == state.shader_focus {
                 grid.invert_row(row);
@@ -82,7 +87,9 @@ mod tests {
     fn nav_down_moves_focus_clamped() {
         let mut b = ParamBody::new();
         let mut s = SharedState::new();
-        for _ in 0..20 { b.handle(Action::NavDown, &mut s); }
+        for _ in 0..20 {
+            b.handle(Action::NavDown, &mut s);
+        }
         assert_eq!(s.shader_focus, 7);
     }
 

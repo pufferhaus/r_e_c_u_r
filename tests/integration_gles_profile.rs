@@ -1,7 +1,7 @@
 //! Verifies `--gles-profile pi3` (V100) filters V310-only shaders.
 
-use std::fs;
 use recur::shader::{GlesVersion, ShaderLibrary};
+use std::fs;
 
 #[test]
 fn v310_only_shader_filtered_under_v100() {
@@ -9,11 +9,13 @@ fn v310_only_shader_filtered_under_v100() {
     fs::write(
         tmp.path().join("v310_only.glsl"),
         include_str!("fixtures/shader_v310_only.glsl"),
-    ).unwrap();
+    )
+    .unwrap();
     fs::write(
         tmp.path().join("v310_only.toml"),
         include_str!("fixtures/shader_v310_only.toml"),
-    ).unwrap();
+    )
+    .unwrap();
 
     let lib_v100 = ShaderLibrary::load_dir_for_profile(tmp.path(), GlesVersion::V100).unwrap();
     assert!(lib_v100.get("v310_only").is_none());

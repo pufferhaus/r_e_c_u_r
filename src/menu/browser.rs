@@ -34,7 +34,9 @@ impl BrowserBody {
     /// enqueue a probe request via state.probe_tx. No-op when no tx wired,
     /// when the cursor is on a folder, or when the cache already has an entry.
     fn maybe_enqueue_probe(&self, state: &mut SharedState, rows: &[BrowserRow]) {
-        let Some(row) = rows.get(self.selected) else { return; };
+        let Some(row) = rows.get(self.selected) else {
+            return;
+        };
         if !row.is_file {
             return;
         }
@@ -74,9 +76,8 @@ impl Screen for BrowserBody {
                 continue;
             }
             let row = &rows[abs];
-            let slot = slot_label_for(state, &row.path).unwrap_or_else(|| {
-                if row.is_file { "-" } else { "x" }.to_string()
-            });
+            let slot = slot_label_for(state, &row.path)
+                .unwrap_or_else(|| if row.is_file { "-" } else { "x" }.to_string());
             let truncated: String = row.display.chars().take(38).collect();
             let cached = state.probe_cache.get(&row.probe_key);
             // Probe-status marker appended after the slot column.
@@ -183,7 +184,8 @@ mod tests {
 
         let mut st = SharedState::new();
         st.paths_to_browser = vec![tmp.path().to_path_buf()];
-        st.probe_cache.insert(&canon, 0, CodecStatus::Unsupported("hevc".into()));
+        st.probe_cache
+            .insert(&canon, 0, CodecStatus::Unsupported("hevc".into()));
 
         let b = BrowserBody::new();
         let mut grid = crate::status::grid::TextGrid::new(48, 17);
@@ -191,10 +193,15 @@ mod tests {
 
         // Row 5 is the first body row. The unsupported file should be dimmed.
         let row5_attr = grid.at(5, 0).attr;
-        assert!(row5_attr & crate::status::grid::ATTR_DIM != 0,
-            "row 5 should have ATTR_DIM (got attr={row5_attr:#04x})");
+        assert!(
+            row5_attr & crate::status::grid::ATTR_DIM != 0,
+            "row 5 should have ATTR_DIM (got attr={row5_attr:#04x})"
+        );
         let row5: String = (0..48).map(|c| grid.at(5, c).ch).collect();
-        assert!(row5.contains("[X]"), "row should contain [X] marker, got: {row5:?}");
+        assert!(
+            row5.contains("[X]"),
+            "row should contain [X] marker, got: {row5:?}"
+        );
     }
 
     #[test]
@@ -214,7 +221,10 @@ mod tests {
         b.render(&st, &mut grid);
 
         let row5: String = (0..48).map(|c| grid.at(5, c).ch).collect();
-        assert!(row5.contains("[..]") || row5.contains("[…]"), "expected pending marker, got: {row5:?}");
+        assert!(
+            row5.contains("[..]") || row5.contains("[…]"),
+            "expected pending marker, got: {row5:?}"
+        );
     }
 
     #[test]
@@ -227,7 +237,8 @@ mod tests {
 
         let mut st = SharedState::new();
         st.paths_to_browser = vec![tmp.path().to_path_buf()];
-        st.probe_cache.insert(&canon, 0, CodecStatus::Unsupported("hevc".into()));
+        st.probe_cache
+            .insert(&canon, 0, CodecStatus::Unsupported("hevc".into()));
 
         let mut b = BrowserBody::new();
         b.handle(Action::Enter, &mut st);
@@ -252,7 +263,10 @@ mod tests {
         let mut b = BrowserBody::new();
         // First action the user takes — even Back, not nav — triggers a probe.
         b.handle(Action::Back, &mut st);
-        assert!(rx.try_recv().is_ok(), "first action should enqueue probe for focused row");
+        assert!(
+            rx.try_recv().is_ok(),
+            "first action should enqueue probe for focused row"
+        );
     }
 
     #[test]

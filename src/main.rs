@@ -140,20 +140,24 @@ fn main() -> anyhow::Result<()> {
         })
         .ok();
 
-    let detour_budget_bytes = recur::detour::resolved_budget_bytes(
-        cfg.detour.as_ref().and_then(|d| d.ring_budget_mb),
-    );
-    let mut ring = recur::detour::Ring::new(cfg.render.width, cfg.render.height, detour_budget_bytes);
+    let detour_budget_bytes =
+        recur::detour::resolved_budget_bytes(cfg.detour.as_ref().and_then(|d| d.ring_budget_mb));
+    let mut ring =
+        recur::detour::Ring::new(cfg.render.width, cfg.render.height, detour_budget_bytes);
     info!(
         "detour: ring capacity = {} frames @ {}x{}",
-        ring.capacity(), cfg.render.width, cfg.render.height,
+        ring.capacity(),
+        cfg.render.width,
+        cfg.render.height,
     );
 
     let sampler_settings = state.sampler.clone();
     let mut rack = PlayerRack::new(sampler_settings, cfg.render.width, cfg.render.height);
-    let (shader_tx, shader_rx) = crossbeam_channel::unbounded::<recur::video::rack::ShaderCommand>();
+    let (shader_tx, shader_rx) =
+        crossbeam_channel::unbounded::<recur::video::rack::ShaderCommand>();
     rack.set_shader_channel(shader_tx);
-    let (detour_tx, detour_rx) = crossbeam_channel::unbounded::<recur::video::rack::DetourCommand>();
+    let (detour_tx, detour_rx) =
+        crossbeam_channel::unbounded::<recur::video::rack::DetourCommand>();
     rack.set_detour_channel(detour_tx);
     let mut grid = TextGrid::new(48, 17);
 
@@ -164,10 +168,15 @@ fn main() -> anyhow::Result<()> {
         let lib = recur::shader::ShaderLibrary::load_dir_for_profile(
             &shader_dir,
             match state.gles_profile {
-                recur::render::shader_assembly::GlesProfile::V100 => recur::shader::GlesVersion::V100,
-                recur::render::shader_assembly::GlesProfile::V310 => recur::shader::GlesVersion::V310,
+                recur::render::shader_assembly::GlesProfile::V100 => {
+                    recur::shader::GlesVersion::V100
+                }
+                recur::render::shader_assembly::GlesProfile::V310 => {
+                    recur::shader::GlesVersion::V310
+                }
             },
-        ).unwrap_or_else(|e| {
+        )
+        .unwrap_or_else(|e| {
             tracing::warn!("initial shader library load failed: {e}");
             recur::shader::ShaderLibrary::default()
         });
@@ -196,7 +205,12 @@ fn main() -> anyhow::Result<()> {
     #[cfg(not(feature = "desktop"))]
     let _ = keymap; // suppress unused warning
 
-    let mut render = recur::render::Render::new(cfg.render.width, cfg.render.height, "r_e_c_u_r", state.gles_profile)?;
+    let mut render = recur::render::Render::new(
+        cfg.render.width,
+        cfg.render.height,
+        "r_e_c_u_r",
+        state.gles_profile,
+    )?;
 
     #[cfg(debug_assertions)]
     {
@@ -310,17 +324,15 @@ fn main() -> anyhow::Result<()> {
         for cmd in shader_rx.try_iter() {
             use recur::video::rack::ShaderCommand;
             match cmd {
-                ShaderCommand::Trigger(name, params) => {
-                    match render.select_shader(&name, params) {
-                        Ok(()) => render.pulse_shader_trigger(),
-                        Err(e) => {
-                            let msg = format!("shader {name}: {e}");
-                            tracing::warn!("{msg}");
-                            state.last_error = Some(msg);
-                            render.clear_shader();
-                        }
+                ShaderCommand::Trigger(name, params) => match render.select_shader(&name, params) {
+                    Ok(()) => render.pulse_shader_trigger(),
+                    Err(e) => {
+                        let msg = format!("shader {name}: {e}");
+                        tracing::warn!("{msg}");
+                        state.last_error = Some(msg);
+                        render.clear_shader();
                     }
-                }
+                },
                 ShaderCommand::SetParams(params) => {
                     render.set_shader_params(params);
                 }
@@ -341,7 +353,10 @@ fn main() -> anyhow::Result<()> {
                     std::fs::read_to_string(&meta_path),
                 ) {
                     (Ok(body), Ok(meta_src)) => {
-                        match recur::shader::ShaderMeta::parse(&meta_src, &meta_path.display().to_string()) {
+                        match recur::shader::ShaderMeta::parse(
+                            &meta_src,
+                            &meta_path.display().to_string(),
+                        ) {
                             Ok(meta) => {
                                 let shader = recur::shader::LoadedShader {
                                     meta,
@@ -363,7 +378,9 @@ fn main() -> anyhow::Result<()> {
         // Drain probe results into the cache.
         for res in probe_res_rx.try_iter() {
             let reclassified = recur::video::reclassify_for_profile(res.status, state.gles_profile);
-            state.probe_cache.insert_if_current(&res.path, res.mtime, reclassified);
+            state
+                .probe_cache
+                .insert_if_current(&res.path, res.mtime, reclassified);
         }
 
         // Drain detour commands (scrub, etc).
@@ -404,7 +421,8 @@ fn main() -> anyhow::Result<()> {
         // The grid render already ran above, so these values are visible next frame (1-frame lag).
         state.frames_stats_count = ring.count();
         state.frames_stats_capacity = ring.capacity();
-        state.frames_stats_used_mb = ((ring.count() * ring.bytes_per_frame()) / (1024 * 1024)) as u64;
+        state.frames_stats_used_mb =
+            ((ring.count() * ring.bytes_per_frame()) / (1024 * 1024)) as u64;
         state.frames_stats_budget_mb = (detour_budget_bytes / (1024 * 1024)) as u64;
         state.frames_stats_fps = cfg.render.fps;
 
@@ -416,7 +434,12 @@ fn main() -> anyhow::Result<()> {
         // Scrub overlay: blend ring frame on top.
         if state.control_mode == recur::state::ControlMode::DetourScrub {
             if let Some(scrub_frame) = ring.get(state.detour.read_position) {
-                render.draw_detour_layer(scrub_frame, ring.width(), ring.height(), state.detour.mix);
+                render.draw_detour_layer(
+                    scrub_frame,
+                    ring.width(),
+                    ring.height(),
+                    state.detour.mix,
+                );
             }
         }
 

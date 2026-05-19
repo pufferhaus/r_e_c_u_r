@@ -37,12 +37,18 @@ impl Default for DetourSettings {
 
 impl DetourSettings {
     pub fn cycle_speed(&mut self) {
-        let i = SPEED_CYCLE.iter().position(|&s| (s - self.speed).abs() < 1e-6).unwrap_or(0);
+        let i = SPEED_CYCLE
+            .iter()
+            .position(|&s| (s - self.speed).abs() < 1e-6)
+            .unwrap_or(0);
         self.speed = SPEED_CYCLE[(i + 1) % SPEED_CYCLE.len()];
     }
 
     pub fn cycle_mix(&mut self) {
-        let i = MIX_CYCLE.iter().position(|&m| (m - self.mix).abs() < 1e-6).unwrap_or(0);
+        let i = MIX_CYCLE
+            .iter()
+            .position(|&m| (m - self.mix).abs() < 1e-6)
+            .unwrap_or(0);
         self.mix = MIX_CYCLE[(i + 1) % MIX_CYCLE.len()];
     }
 
@@ -122,7 +128,12 @@ mod tests {
         d.speed = 1.0;
         for expected_next in order.iter().skip(1) {
             d.cycle_speed();
-            assert!((d.speed - expected_next).abs() < 1e-6, "{} vs {}", d.speed, expected_next);
+            assert!(
+                (d.speed - expected_next).abs() < 1e-6,
+                "{} vs {}",
+                d.speed,
+                expected_next
+            );
         }
     }
 

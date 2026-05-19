@@ -5,13 +5,13 @@
 
 use std::num::NonZeroU32;
 
+use glow::HasContext;
 use glutin::config::ConfigTemplateBuilder;
 use glutin::context::{ContextApi, ContextAttributesBuilder, Version};
 use glutin::display::GetGlDisplay;
 use glutin::prelude::*;
 use glutin::surface::{Surface, SurfaceAttributesBuilder, WindowSurface};
 use glutin_winit::DisplayBuilder;
-use glow::HasContext;
 use winit::dpi::PhysicalSize;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -53,9 +53,13 @@ pub struct WinitGlTarget {
 }
 
 impl WinitGlTarget {
-    pub fn new(width: u32, height: u32, title: &str, profile: crate::render::shader_assembly::GlesProfile) -> anyhow::Result<Self> {
-        let event_loop = EventLoop::new()
-            .map_err(|e| anyhow::anyhow!("event loop: {e}"))?;
+    pub fn new(
+        width: u32,
+        height: u32,
+        title: &str,
+        profile: crate::render::shader_assembly::GlesProfile,
+    ) -> anyhow::Result<Self> {
+        let event_loop = EventLoop::new().map_err(|e| anyhow::anyhow!("event loop: {e}"))?;
 
         let window_attributes = Window::default_attributes()
             .with_inner_size(PhysicalSize::new(width, height))
@@ -63,8 +67,7 @@ impl WinitGlTarget {
 
         let template = ConfigTemplateBuilder::new().with_alpha_size(8);
 
-        let display_builder =
-            DisplayBuilder::new().with_window_attributes(Some(window_attributes));
+        let display_builder = DisplayBuilder::new().with_window_attributes(Some(window_attributes));
 
         let (window, gl_config) = display_builder
             .build(&event_loop, template, |mut configs| configs.next().unwrap())
@@ -171,10 +174,12 @@ impl WinitGlTarget {
 
         // Cache vertex attribute locations (constant after program compile)
         let pos_loc = unsafe {
-            gl.get_attrib_location(program, "a_pos").expect("a_pos not found in shader") as u32
+            gl.get_attrib_location(program, "a_pos")
+                .expect("a_pos not found in shader") as u32
         };
         let uv_loc = unsafe {
-            gl.get_attrib_location(program, "a_uv").expect("a_uv not found in shader") as u32
+            gl.get_attrib_location(program, "a_uv")
+                .expect("a_uv not found in shader") as u32
         };
 
         // Build text overlay (atlas texture + dynamic VBO + shader)
@@ -379,7 +384,8 @@ impl WinitGlTarget {
 
     pub fn select_shader(&mut self, name: &str, params: [f32; 8]) -> anyhow::Result<()> {
         unsafe {
-            self.pipeline.select(&self.gl, name)
+            self.pipeline
+                .select(&self.gl, name)
                 .map_err(|e| anyhow::anyhow!("select_shader {name}: {e}"))?;
         }
         self.pipeline.set_params(params);
@@ -406,4 +412,3 @@ impl WinitGlTarget {
         self.pipeline.set_params(params);
     }
 }
-

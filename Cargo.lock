@@ -2109,6 +2109,45 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
+name = "r_e_c_u_rs"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytemuck",
+ "clap",
+ "crossbeam-channel",
+ "drm 0.12.0",
+ "embedded-graphics",
+ "evdev",
+ "gbm",
+ "glow",
+ "glutin",
+ "glutin-winit",
+ "gstreamer",
+ "gstreamer-app",
+ "gstreamer-gl",
+ "gstreamer-pbutils",
+ "khronos-egl",
+ "libc",
+ "memmap2",
+ "notify",
+ "pretty_assertions",
+ "rand",
+ "rand_chacha",
+ "raw-window-handle",
+ "serde",
+ "serde_json",
+ "softbuffer",
+ "sysinfo",
+ "tempfile",
+ "thiserror 1.0.69",
+ "toml 0.8.23",
+ "tracing",
+ "tracing-subscriber",
+ "winit",
+]
+
+[[package]]
 name = "radium"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2149,45 +2188,6 @@ name = "raw-window-handle"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "20675572f6f24e9e76ef639bc5552774ed45f1c30e2951e1e99c59888861c539"
-
-[[package]]
-name = "recur"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytemuck",
- "clap",
- "crossbeam-channel",
- "drm 0.12.0",
- "embedded-graphics",
- "evdev",
- "gbm",
- "glow",
- "glutin",
- "glutin-winit",
- "gstreamer",
- "gstreamer-app",
- "gstreamer-gl",
- "gstreamer-pbutils",
- "khronos-egl",
- "libc",
- "memmap2",
- "notify",
- "pretty_assertions",
- "rand",
- "rand_chacha",
- "raw-window-handle",
- "serde",
- "serde_json",
- "softbuffer",
- "sysinfo",
- "tempfile",
- "thiserror 1.0.69",
- "toml 0.8.23",
- "tracing",
- "tracing-subscriber",
- "winit",
-]
 
 [[package]]
 name = "redox_syscall"

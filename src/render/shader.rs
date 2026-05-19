@@ -28,12 +28,8 @@ void main() {
 // Two-triangle quad covering NDC [-1,1] with flipped V (image top = GL bottom).
 // Layout: (x, y, u, v)
 pub const QUAD: &[f32] = &[
-    -1.0, -1.0, 0.0, 1.0,
-     1.0, -1.0, 1.0, 1.0,
-    -1.0,  1.0, 0.0, 0.0,
-    -1.0,  1.0, 0.0, 0.0,
-     1.0, -1.0, 1.0, 1.0,
-     1.0,  1.0, 1.0, 0.0,
+    -1.0, -1.0, 0.0, 1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 0.0, 0.0, -1.0, 1.0, 0.0, 0.0, 1.0, -1.0,
+    1.0, 1.0, 1.0, 1.0, 1.0, 0.0,
 ];
 
 /// Compile a single GLSL shader stage. Shared by desktop and Pi backends.

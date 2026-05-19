@@ -7,8 +7,8 @@
 use winit::event::{ElementState, KeyEvent};
 use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
 
-use crate::action::Action;
 use super::keymap::Keymap;
+use crate::action::Action;
 
 /// Accumulated input state fed from winit events.
 pub struct WinitSource {

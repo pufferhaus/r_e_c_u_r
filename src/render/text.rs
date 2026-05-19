@@ -146,10 +146,7 @@ fn bake_atlas() -> Vec<u8> {
         // image format (1bpp packed).
         let image = Image::new(
             &font.image,
-            Point::new(
-                dest_x - src_x as i32,
-                dest_y - src_y as i32,
-            ),
+            Point::new(dest_x - src_x as i32, dest_y - src_y as i32),
         );
         // Clip the draw to the destination glyph rect by using a translated
         // sub-target. Simpler: draw the whole thing — pixels outside our
@@ -375,7 +372,11 @@ impl TextOverlay {
                 // near-zero contrast (dark-amber-on-amber).
                 let (fg, bg) = if cell.attr & ATTR_DIM != 0 && cell.attr & ATTR_INVERSE == 0 {
                     let mix = |a: [f32; 3], b: [f32; 3]| {
-                        [a[0] * 0.4 + b[0] * 0.6, a[1] * 0.4 + b[1] * 0.6, a[2] * 0.4 + b[2] * 0.6]
+                        [
+                            a[0] * 0.4 + b[0] * 0.6,
+                            a[1] * 0.4 + b[1] * 0.6,
+                            a[2] * 0.4 + b[2] * 0.6,
+                        ]
                     };
                     (mix(fg, bg), bg)
                 } else {

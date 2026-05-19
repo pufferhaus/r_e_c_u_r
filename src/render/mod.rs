@@ -22,7 +22,12 @@ pub use pi::PiTarget as Render;
 mod stub {
     pub struct Render;
     impl Render {
-        pub fn new(_w: u32, _h: u32, _t: &str, _p: crate::render::shader_assembly::GlesProfile) -> anyhow::Result<Self> {
+        pub fn new(
+            _w: u32,
+            _h: u32,
+            _t: &str,
+            _p: crate::render::shader_assembly::GlesProfile,
+        ) -> anyhow::Result<Self> {
             Ok(Self)
         }
         pub fn pump(&mut self) -> Vec<()> {
@@ -36,7 +41,9 @@ mod stub {
         pub fn draw_detour_layer(&mut self, _: &[u8], _: u32, _: u32, _: f32) {}
         pub fn draw_text_grid(&mut self, _: &crate::status::grid::TextGrid) {}
         pub fn end_frame(&mut self) {}
-        pub fn select_shader(&mut self, _: &str, _: [f32; 8]) -> anyhow::Result<()> { Ok(()) }
+        pub fn select_shader(&mut self, _: &str, _: [f32; 8]) -> anyhow::Result<()> {
+            Ok(())
+        }
         pub fn clear_shader(&mut self) {}
         pub fn pulse_shader_trigger(&mut self) {}
         pub fn invalidate_shader(&mut self, _: &str) {}

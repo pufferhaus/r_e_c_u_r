@@ -9,35 +9,65 @@ use crate::ui::{Screen, ScreenResult};
 pub struct FramesBody;
 
 impl FramesBody {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
 
 impl Default for FramesBody {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Screen for FramesBody {
     fn render(&self, state: &SharedState, grid: &mut TextGrid) {
         let d = &state.detour;
         let fps = state.frames_stats_fps.max(1);
-        let scrub_age_s = (state.frames_stats_count.saturating_sub(1).saturating_sub(d.read_position) as f32) / fps as f32;
+        let scrub_age_s = (state
+            .frames_stats_count
+            .saturating_sub(1)
+            .saturating_sub(d.read_position) as f32)
+            / fps as f32;
         let marker_str = match (d.start_marker, d.end_marker) {
             (Some(a), Some(b)) => format!("[{a}..{b}]"),
             (Some(a), None) => format!("[{a}..]"),
             (None, Some(b)) => format!("[..{b}]"),
             _ => "[none]".to_string(),
         };
-        grid.write_row(5, &format!("ring: {}/{} frames ({}/{} MB)",
-            state.frames_stats_count, state.frames_stats_capacity,
-            state.frames_stats_used_mb, state.frames_stats_budget_mb));
-        grid.write_row(6, &format!("scrub: frame {}/{} ({:.2}s ago)",
-            d.read_position, state.frames_stats_count.saturating_sub(1), scrub_age_s));
-        grid.write_row(7, &format!("speed: {:.2}x  dir: {}  mix: {:.0}%",
-            d.speed,
-            if d.forward { "fwd" } else { "rev" },
-            d.mix * 100.0));
+        grid.write_row(
+            5,
+            &format!(
+                "ring: {}/{} frames ({}/{} MB)",
+                state.frames_stats_count,
+                state.frames_stats_capacity,
+                state.frames_stats_used_mb,
+                state.frames_stats_budget_mb
+            ),
+        );
+        grid.write_row(
+            6,
+            &format!(
+                "scrub: frame {}/{} ({:.2}s ago)",
+                d.read_position,
+                state.frames_stats_count.saturating_sub(1),
+                scrub_age_s
+            ),
+        );
+        grid.write_row(
+            7,
+            &format!(
+                "speed: {:.2}x  dir: {}  mix: {:.0}%",
+                d.speed,
+                if d.forward { "fwd" } else { "rev" },
+                d.mix * 100.0
+            ),
+        );
         grid.write_row(8, &format!("markers: {}", marker_str));
-        grid.write_row(9, &format!("auto-play: {}", if d.auto_play { "ON" } else { "off" }));
+        grid.write_row(
+            9,
+            &format!("auto-play: {}", if d.auto_play { "ON" } else { "off" }),
+        );
     }
 
     fn handle(&mut self, _action: Action, _state: &mut SharedState) -> ScreenResult {

@@ -86,7 +86,10 @@ mod tests {
             ring_budget_mb = 256
         "#;
         let cfg: Config = toml::from_str(s).unwrap();
-        assert_eq!(cfg.detour.as_ref().and_then(|d| d.ring_budget_mb), Some(256));
+        assert_eq!(
+            cfg.detour.as_ref().and_then(|d| d.ring_budget_mb),
+            Some(256)
+        );
     }
 
     #[test]
@@ -98,7 +101,9 @@ mod tests {
             fps = 30
         "#;
         let cfg: Config = toml::from_str(s).unwrap();
-        assert!(cfg.detour.is_none() || cfg.detour.as_ref().and_then(|d| d.ring_budget_mb).is_none());
+        assert!(
+            cfg.detour.is_none() || cfg.detour.as_ref().and_then(|d| d.ring_budget_mb).is_none()
+        );
     }
 
     #[test]

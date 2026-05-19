@@ -18,12 +18,14 @@ use std::os::fd::AsFd;
 
 use drm::control::{connector, framebuffer, Device as ControlDevice};
 use drm::Device as BasicDevice;
-use gbm::{AsRaw, BufferObjectFlags, Device as GbmDevice, Format as GbmFormat, Surface as GbmSurface};
+use gbm::{
+    AsRaw, BufferObjectFlags, Device as GbmDevice, Format as GbmFormat, Surface as GbmSurface,
+};
 use glow::HasContext;
 
-use crate::error::{Error, Result};
 use super::shader;
 use super::text::TextOverlay;
+use crate::error::{Error, Result};
 
 // ── DRM card wrapper ──────────────────────────────────────────────────────────
 
@@ -78,7 +80,9 @@ impl PiCard {
                 return Ok(info);
             }
         }
-        Err(Error::Other("no connected composite/TV connector found".into()))
+        Err(Error::Other(
+            "no connected composite/TV connector found".into(),
+        ))
     }
 }
 
@@ -107,7 +111,9 @@ impl<'a> drm::buffer::PlanarBuffer for GbmFb<'a> {
     }
     fn handles(&self) -> [Option<drm::buffer::Handle>; 4] {
         [
-            Some(<gbm::BufferObject<()> as drm::buffer::Buffer>::handle(self.bo)),
+            Some(<gbm::BufferObject<()> as drm::buffer::Buffer>::handle(
+                self.bo,
+            )),
             None,
             None,
             None,
@@ -169,8 +175,8 @@ impl PiContext {
                 .try_clone()
                 .map_err(|e| Error::Other(format!("dup fd: {e}")))?,
         };
-        let gbm = GbmDevice::new(card_for_gbm)
-            .map_err(|e| Error::Other(format!("gbm device: {e}")))?;
+        let gbm =
+            GbmDevice::new(card_for_gbm).map_err(|e| Error::Other(format!("gbm device: {e}")))?;
         let surface = gbm
             .create_surface::<()>(
                 width,
@@ -194,10 +200,14 @@ impl PiContext {
         let attribs = [
             khronos_egl::SURFACE_TYPE,
             khronos_egl::WINDOW_BIT,
-            khronos_egl::RED_SIZE,   8,
-            khronos_egl::GREEN_SIZE, 8,
-            khronos_egl::BLUE_SIZE,  8,
-            khronos_egl::ALPHA_SIZE, 8,
+            khronos_egl::RED_SIZE,
+            8,
+            khronos_egl::GREEN_SIZE,
+            8,
+            khronos_egl::BLUE_SIZE,
+            8,
+            khronos_egl::ALPHA_SIZE,
+            8,
             khronos_egl::RENDERABLE_TYPE,
             khronos_egl::OPENGL_ES2_BIT,
             khronos_egl::NONE,
@@ -214,13 +224,8 @@ impl PiContext {
             .create_context(egl_display, config, None, &ctx_attribs)
             .map_err(|e| Error::Other(format!("egl create context: {e}")))?;
         let egl_surface = unsafe {
-            egl.create_window_surface(
-                egl_display,
-                config,
-                surface.as_raw_mut() as *mut _,
-                None,
-            )
-            .map_err(|e| Error::Other(format!("egl create surface: {e}")))?
+            egl.create_window_surface(egl_display, config, surface.as_raw_mut() as *mut _, None)
+                .map_err(|e| Error::Other(format!("egl create surface: {e}")))?
         };
         egl.make_current(
             egl_display,
@@ -294,35 +299,65 @@ pub struct PiTarget {
 }
 
 impl PiTarget {
-    pub fn new(w: u32, h: u32, _title: &str, profile: crate::render::shader_assembly::GlesProfile) -> anyhow::Result<Self> {
+    pub fn new(
+        w: u32,
+        h: u32,
+        _title: &str,
+        profile: crate::render::shader_assembly::GlesProfile,
+    ) -> anyhow::Result<Self> {
         let ctx = PiContext::create(w, h)?;
 
         let program = unsafe { shader::compile_program(&ctx.gl, shader::VERT, shader::FRAG)? };
 
         let vbo = unsafe {
-            let vbo = ctx.gl
+            let vbo = ctx
+                .gl
                 .create_buffer()
                 .map_err(|e| anyhow::anyhow!("create vbo: {e}"))?;
             ctx.gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
             let bytes: &[u8] = bytemuck::cast_slice(shader::QUAD);
-            ctx.gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, bytes, glow::STATIC_DRAW);
+            ctx.gl
+                .buffer_data_u8_slice(glow::ARRAY_BUFFER, bytes, glow::STATIC_DRAW);
             vbo
         };
 
         let texture = unsafe {
-            let tex = ctx.gl
+            let tex = ctx
+                .gl
                 .create_texture()
                 .map_err(|e| anyhow::anyhow!("create texture: {e}"))?;
             ctx.gl.bind_texture(glow::TEXTURE_2D, Some(tex));
             ctx.gl.tex_image_2d(
-                glow::TEXTURE_2D, 0, glow::RGBA as i32,
-                w as i32, h as i32, 0,
-                glow::RGBA, glow::UNSIGNED_BYTE, None,
+                glow::TEXTURE_2D,
+                0,
+                glow::RGBA as i32,
+                w as i32,
+                h as i32,
+                0,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
+                None,
             );
-            ctx.gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::LINEAR as i32);
-            ctx.gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::LINEAR as i32);
-            ctx.gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as i32);
-            ctx.gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as i32);
+            ctx.gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_MIN_FILTER,
+                glow::LINEAR as i32,
+            );
+            ctx.gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_MAG_FILTER,
+                glow::LINEAR as i32,
+            );
+            ctx.gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_S,
+                glow::CLAMP_TO_EDGE as i32,
+            );
+            ctx.gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_T,
+                glow::CLAMP_TO_EDGE as i32,
+            );
             tex
         };
 
@@ -331,10 +366,14 @@ impl PiTarget {
 
         // Cache vertex attribute locations (constant after program compile)
         let pos_loc = unsafe {
-            ctx.gl.get_attrib_location(program, "a_pos").expect("a_pos not found in shader") as u32
+            ctx.gl
+                .get_attrib_location(program, "a_pos")
+                .expect("a_pos not found in shader") as u32
         };
         let uv_loc = unsafe {
-            ctx.gl.get_attrib_location(program, "a_uv").expect("a_uv not found in shader") as u32
+            ctx.gl
+                .get_attrib_location(program, "a_uv")
+                .expect("a_uv not found in shader") as u32
         };
 
         let text = unsafe { TextOverlay::new(&ctx.gl)? };
@@ -398,18 +437,29 @@ impl PiTarget {
 
             if w != self.last_tex_w || h != self.last_tex_h {
                 gl.tex_image_2d(
-                    glow::TEXTURE_2D, 0, glow::RGBA as i32,
-                    w as i32, h as i32, 0,
-                    glow::RGBA, glow::UNSIGNED_BYTE, None,
+                    glow::TEXTURE_2D,
+                    0,
+                    glow::RGBA as i32,
+                    w as i32,
+                    h as i32,
+                    0,
+                    glow::RGBA,
+                    glow::UNSIGNED_BYTE,
+                    None,
                 );
                 self.last_tex_w = w;
                 self.last_tex_h = h;
             }
 
             gl.tex_sub_image_2d(
-                glow::TEXTURE_2D, 0, 0, 0,
-                w as i32, h as i32,
-                glow::RGBA, glow::UNSIGNED_BYTE,
+                glow::TEXTURE_2D,
+                0,
+                0,
+                0,
+                w as i32,
+                h as i32,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
                 glow::PixelUnpackData::Slice(rgba),
             );
 
@@ -481,7 +531,11 @@ impl PiTarget {
     /// and handles plane attachment atomically.
     pub fn end_frame(&mut self) {
         // Swap EGL — this makes the GBM front buffer available.
-        if let Err(e) = self.ctx.egl.swap_buffers(self.ctx.egl_display, self.ctx.egl_surface) {
+        if let Err(e) = self
+            .ctx
+            .egl
+            .swap_buffers(self.ctx.egl_display, self.ctx.egl_surface)
+        {
             tracing::warn!("egl swap_buffers: {e}");
             return;
         }
@@ -496,10 +550,11 @@ impl PiTarget {
         };
 
         // Register it as a DRM framebuffer.
-        let fb = match self.ctx.card.add_planar_framebuffer(
-            &GbmFb { bo: &bo },
-            drm::control::FbCmd2Flags::empty(),
-        ) {
+        let fb = match self
+            .ctx
+            .card
+            .add_planar_framebuffer(&GbmFb { bo: &bo }, drm::control::FbCmd2Flags::empty())
+        {
             Ok(fb) => fb,
             Err(e) => {
                 tracing::warn!("add_planar_framebuffer: {e}");
@@ -526,7 +581,8 @@ impl PiTarget {
 
     pub fn select_shader(&mut self, name: &str, params: [f32; 8]) -> anyhow::Result<()> {
         unsafe {
-            self.pipeline.select(&self.ctx.gl, name)
+            self.pipeline
+                .select(&self.ctx.gl, name)
                 .map_err(|e| anyhow::anyhow!("select_shader {name}: {e}"))?;
         }
         self.pipeline.set_params(params);

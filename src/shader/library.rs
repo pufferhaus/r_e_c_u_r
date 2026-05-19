@@ -56,10 +56,7 @@ impl ShaderLibrary {
             };
             let meta_path = path.with_extension("toml");
             if !meta_path.exists() {
-                tracing::warn!(
-                    "shader {} has no .toml metadata, skipping",
-                    path.display()
-                );
+                tracing::warn!("shader {} has no .toml metadata, skipping", path.display());
                 continue;
             }
             let body = std::fs::read_to_string(&path)?;
@@ -198,7 +195,11 @@ mod tests {
     fn underscore_files_are_skipped() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::write(tmp.path().join("_prelude_100.glsl"), "// prelude").unwrap();
-        std::fs::write(tmp.path().join("_prelude_100.toml"), "name = \"_prelude_100\"\n").unwrap();
+        std::fs::write(
+            tmp.path().join("_prelude_100.toml"),
+            "name = \"_prelude_100\"\n",
+        )
+        .unwrap();
         let lib = ShaderLibrary::load_dir(tmp.path()).unwrap();
         assert!(lib.get("_prelude_100").is_none());
     }
@@ -215,8 +216,14 @@ mod tests {
         use std::path::PathBuf;
         let repo_shaders = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("shaders");
         let lib = ShaderLibrary::load_dir(&repo_shaders).unwrap();
-        assert!(lib.get("passthrough").is_some(), "passthrough should load from real shaders/ dir");
-        assert!(lib.get("__safe__").is_some(), "baked safe-shader still present");
+        assert!(
+            lib.get("passthrough").is_some(),
+            "passthrough should load from real shaders/ dir"
+        );
+        assert!(
+            lib.get("__safe__").is_some(),
+            "baked safe-shader still present"
+        );
     }
 
     #[test]
@@ -224,7 +231,13 @@ mod tests {
         use std::path::PathBuf;
         let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("shaders");
         let lib = ShaderLibrary::load_dir_for_profile(&dir, GlesVersion::V100).unwrap();
-        for name in ["passthrough", "color_shift", "pixelate", "kaleidoscope", "rgb_glitch"] {
+        for name in [
+            "passthrough",
+            "color_shift",
+            "pixelate",
+            "kaleidoscope",
+            "rgb_glitch",
+        ] {
             assert!(lib.get(name).is_some(), "starter shader {name} missing");
         }
     }
@@ -234,6 +247,10 @@ mod tests {
         use std::path::PathBuf;
         let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("shaders");
         let lib = ShaderLibrary::load_dir_for_profile(&dir, GlesVersion::V100).unwrap();
-        assert_eq!(lib.filtered_count(), 0, "no starter shader should be v310-only");
+        assert_eq!(
+            lib.filtered_count(),
+            0,
+            "no starter shader should be v310-only"
+        );
     }
 }

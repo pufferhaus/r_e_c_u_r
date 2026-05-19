@@ -45,7 +45,9 @@ impl RootScreen {
     fn render_chrome(&self, state: &SharedState, grid: &mut TextGrid) {
         // Row 1 — title
         let title = match state.display_mode {
-            DisplayMode::Shaders | DisplayMode::ShdrBnk => "============== c_o_n_j_u_r =============",
+            DisplayMode::Shaders | DisplayMode::ShdrBnk => {
+                "============== c_o_n_j_u_r ============="
+            }
             DisplayMode::Frames => "============== d_e_t_o_u_r =============",
             _ => "============== r_e_c_u_r ===============",
         };
@@ -173,8 +175,10 @@ mod tests {
         let mut grid = crate::status::grid::TextGrid::new(48, 17);
         root.render(&st, &mut grid);
         let row15: String = (0..48).map(|c| grid.at(15, c).ch).collect();
-        assert!(row15.contains("profile: pi3") || row15.contains("v100"),
-            "footer should call out pi3 compat mode, got: {row15}");
+        assert!(
+            row15.contains("profile: pi3") || row15.contains("v100"),
+            "footer should call out pi3 compat mode, got: {row15}"
+        );
     }
 
     #[test]
@@ -245,14 +249,26 @@ mod tests {
         // Before NavDown: selected is 0, so row 5 (body row 0) is inverted.
         let mut grid = TextGrid::new(48, 17);
         root.render(&st, &mut grid);
-        assert!(grid.at(5, 0).attr & ATTR_INVERSE != 0, "row 5 should be inverted before nav");
-        assert!(grid.at(6, 0).attr & ATTR_INVERSE == 0, "row 6 should not be inverted before nav");
+        assert!(
+            grid.at(5, 0).attr & ATTR_INVERSE != 0,
+            "row 5 should be inverted before nav"
+        );
+        assert!(
+            grid.at(6, 0).attr & ATTR_INVERSE == 0,
+            "row 6 should not be inverted before nav"
+        );
 
         // NavDown advances selected to 1; now row 6 should be inverted.
         root.handle(Action::NavDown, &mut st);
         let mut grid2 = TextGrid::new(48, 17);
         root.render(&st, &mut grid2);
-        assert!(grid2.at(5, 0).attr & ATTR_INVERSE == 0, "row 5 should not be inverted after nav");
-        assert!(grid2.at(6, 0).attr & ATTR_INVERSE != 0, "row 6 should be inverted after nav");
+        assert!(
+            grid2.at(5, 0).attr & ATTR_INVERSE == 0,
+            "row 5 should not be inverted after nav"
+        );
+        assert!(
+            grid2.at(6, 0).attr & ATTR_INVERSE != 0,
+            "row 6 should be inverted after nav"
+        );
     }
 }

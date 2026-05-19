@@ -166,7 +166,10 @@ impl ShaderPipeline {
         let (fbo, output_tex, _, _) = *self.output.as_ref().unwrap();
         let vbo = self.vbo.unwrap();
 
-        let cached = self.cache.get(&active).expect("just compiled or already cached");
+        let cached = self
+            .cache
+            .get(&active)
+            .expect("just compiled or already cached");
 
         gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));
         gl.viewport(0, 0, w as i32, h as i32);
@@ -248,10 +251,26 @@ impl ShaderPipeline {
             glow::UNSIGNED_BYTE,
             None,
         );
-        gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::LINEAR as i32);
-        gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::LINEAR as i32);
-        gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as i32);
-        gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as i32);
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_MIN_FILTER,
+            glow::LINEAR as i32,
+        );
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_MAG_FILTER,
+            glow::LINEAR as i32,
+        );
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_WRAP_S,
+            glow::CLAMP_TO_EDGE as i32,
+        );
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_WRAP_T,
+            glow::CLAMP_TO_EDGE as i32,
+        );
 
         let fbo = gl
             .create_framebuffer()

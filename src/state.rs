@@ -396,7 +396,10 @@ mod tests {
         assert!(s.shader_banks[0].slots.iter().all(Option::is_none));
         assert_eq!(s.shader_bank_number, 0);
         assert_eq!(s.shader_focus, 0);
-        assert_eq!(s.gles_profile, crate::render::shader_assembly::GlesProfile::default_for_build());
+        assert_eq!(
+            s.gles_profile,
+            crate::render::shader_assembly::GlesProfile::default_for_build()
+        );
     }
 
     #[test]

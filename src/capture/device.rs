@@ -15,10 +15,14 @@ pub fn enumerate_capture_devices() -> Vec<CaptureDevice> {
     #[cfg(target_os = "linux")]
     {
         let mut out = Vec::new();
-        let Ok(entries) = std::fs::read_dir("/dev") else { return out; };
+        let Ok(entries) = std::fs::read_dir("/dev") else {
+            return out;
+        };
         for e in entries.flatten() {
             let p = e.path();
-            let Some(name) = p.file_name().and_then(|s| s.to_str()) else { continue; };
+            let Some(name) = p.file_name().and_then(|s| s.to_str()) else {
+                continue;
+            };
             if let Some(suffix) = name.strip_prefix("video") {
                 if !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit()) {
                     out.push(CaptureDevice {

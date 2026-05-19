@@ -94,7 +94,10 @@ mod tests {
     #[test]
     #[cfg(target_os = "linux")]
     fn capture_source_element_linux_uses_v4l2src() {
-        let d = CaptureDevice { path: "/dev/video0".into(), label: "v4l2:video0".into() };
+        let d = CaptureDevice {
+            path: "/dev/video0".into(),
+            label: "v4l2:video0".into(),
+        };
         let s = capture_source_element(&d);
         assert!(s.contains("v4l2src"));
         assert!(s.contains("/dev/video0"));
@@ -103,7 +106,10 @@ mod tests {
     #[test]
     #[cfg(target_os = "macos")]
     fn capture_source_element_macos_uses_avfvideosrc() {
-        let d = CaptureDevice { path: "0".into(), label: "avf-camera-0".into() };
+        let d = CaptureDevice {
+            path: "0".into(),
+            label: "avf-camera-0".into(),
+        };
         let s = capture_source_element(&d);
         assert!(s.contains("avfvideosrc"));
         assert!(s.contains("device-index=0"));
@@ -111,13 +117,19 @@ mod tests {
 
     #[test]
     fn capture_pipeline_desc_has_tee_and_appsink_and_fakesink() {
-        let d = CaptureDevice { path: "/dev/video0".into(), label: "v4l2:video0".into() };
+        let d = CaptureDevice {
+            path: "/dev/video0".into(),
+            label: "v4l2:video0".into(),
+        };
         let desc = capture_pipeline_desc(&d, 720, 480);
         assert!(desc.contains("tee name=cap_t"), "missing tee: {desc}");
         assert!(desc.contains("videoscale"));
         assert!(desc.contains("width=720,height=480"));
         assert!(desc.contains("appsink"));
         // Second branch — placeholder so record bin can replace it later.
-        assert!(desc.contains("fakesink"), "missing placeholder fakesink: {desc}");
+        assert!(
+            desc.contains("fakesink"),
+            "missing placeholder fakesink: {desc}"
+        );
     }
 }

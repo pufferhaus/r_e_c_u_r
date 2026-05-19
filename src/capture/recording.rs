@@ -17,15 +17,30 @@ pub enum Target {
 impl Target {
     pub fn current() -> Self {
         #[cfg(feature = "pi3")]
-        { return Target::Pi3; }
+        {
+            return Target::Pi3;
+        }
         #[cfg(feature = "pi5")]
-        { return Target::Pi5; }
+        {
+            return Target::Pi5;
+        }
         #[cfg(all(not(feature = "pi3"), not(feature = "pi5"), target_os = "macos"))]
-        { return Target::MacDesktop; }
+        {
+            return Target::MacDesktop;
+        }
         #[cfg(all(not(feature = "pi3"), not(feature = "pi5"), target_os = "linux"))]
-        { return Target::LinuxDesktop; }
-        #[cfg(all(not(feature = "pi3"), not(feature = "pi5"), not(target_os = "macos"), not(target_os = "linux")))]
-        { return Target::LinuxDesktop; }
+        {
+            return Target::LinuxDesktop;
+        }
+        #[cfg(all(
+            not(feature = "pi3"),
+            not(feature = "pi5"),
+            not(target_os = "macos"),
+            not(target_os = "linux")
+        ))]
+        {
+            return Target::LinuxDesktop;
+        }
     }
 }
 
@@ -86,7 +101,9 @@ fn free_mb(dir: &Path) -> Option<u64> {
     let c = CString::new(dir.as_os_str().as_bytes()).ok()?;
     let mut stat: libc::statvfs = unsafe { std::mem::zeroed() };
     let rc = unsafe { libc::statvfs(c.as_ptr(), &mut stat) };
-    if rc != 0 { return None; }
+    if rc != 0 {
+        return None;
+    }
     let bsize = stat.f_frsize as u64;
     let avail = stat.f_bavail as u64;
     Some((bsize.saturating_mul(avail)) / (1024 * 1024))
@@ -113,10 +130,10 @@ pub fn build_record_bin_desc(target: Target, file_path: &Path) -> String {
 
 fn encoder_chain(target: Target) -> (&'static str, &'static str) {
     match target {
-        Target::Pi3          => ("v4l2h264enc", "h264parse"),
-        Target::Pi5          => ("v4l2h265enc", "h265parse"),
-        Target::MacDesktop   => ("vtenc_h264",  "h264parse"),
-        Target::LinuxDesktop => ("x264enc",     "h264parse"),
+        Target::Pi3 => ("v4l2h264enc", "h264parse"),
+        Target::Pi5 => ("v4l2h265enc", "h265parse"),
+        Target::MacDesktop => ("vtenc_h264", "h264parse"),
+        Target::LinuxDesktop => ("x264enc", "h264parse"),
     }
 }
 
@@ -130,7 +147,10 @@ mod tests {
     fn generate_recording_path_starts_at_zero() {
         let td = TempDir::new().unwrap();
         let p = generate_recording_path(td.path(), "2026-05-17");
-        assert_eq!(p.file_name().unwrap().to_str(), Some("rec-2026-05-17-0.mp4"));
+        assert_eq!(
+            p.file_name().unwrap().to_str(),
+            Some("rec-2026-05-17-0.mp4")
+        );
     }
 
     #[test]
@@ -139,7 +159,10 @@ mod tests {
         fs::write(td.path().join("rec-2026-05-17-0.mp4"), b"").unwrap();
         fs::write(td.path().join("rec-2026-05-17-1.mp4"), b"").unwrap();
         let p = generate_recording_path(td.path(), "2026-05-17");
-        assert_eq!(p.file_name().unwrap().to_str(), Some("rec-2026-05-17-2.mp4"));
+        assert_eq!(
+            p.file_name().unwrap().to_str(),
+            Some("rec-2026-05-17-2.mp4")
+        );
     }
 
     #[test]
@@ -192,7 +215,10 @@ mod tests {
         assert!(d.contains("splitmuxsink"));
         assert!(d.contains("muxer-factory=mp4mux"));
         assert!(d.contains("max-size-time=0"));
-        assert!(d.contains("location=\"/tmp/r.mp4\""), "missing quoted location: {d}");
+        assert!(
+            d.contains("location=\"/tmp/r.mp4\""),
+            "missing quoted location: {d}"
+        );
     }
 
     #[test]
