@@ -294,7 +294,7 @@ fn main() -> anyhow::Result<()> {
                         .file_path
                         .parent()
                         .map(|p| p.to_path_buf())
-                        .unwrap_or_else(|| std::env::temp_dir());
+                        .unwrap_or_else(std::env::temp_dir);
                     !recur::capture::recording::check_disk_space(&dir, 10)
                 } else {
                     false

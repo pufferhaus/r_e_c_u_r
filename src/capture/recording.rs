@@ -18,19 +18,19 @@ impl Target {
     pub fn current() -> Self {
         #[cfg(feature = "pi3")]
         {
-            return Target::Pi3;
+            Target::Pi3
         }
         #[cfg(feature = "pi5")]
         {
-            return Target::Pi5;
+            Target::Pi5
         }
         #[cfg(all(not(feature = "pi3"), not(feature = "pi5"), target_os = "macos"))]
         {
-            return Target::MacDesktop;
+            Target::MacDesktop
         }
         #[cfg(all(not(feature = "pi3"), not(feature = "pi5"), target_os = "linux"))]
         {
-            return Target::LinuxDesktop;
+            Target::LinuxDesktop
         }
         #[cfg(all(
             not(feature = "pi3"),
@@ -39,7 +39,7 @@ impl Target {
             not(target_os = "linux")
         ))]
         {
-            return Target::LinuxDesktop;
+            Target::LinuxDesktop
         }
     }
 }
@@ -104,7 +104,7 @@ fn free_mb(dir: &Path) -> Option<u64> {
     if rc != 0 {
         return None;
     }
-    let bsize = stat.f_frsize as u64;
+    let bsize = stat.f_frsize;
     let avail = stat.f_bavail as u64;
     Some((bsize.saturating_mul(avail)) / (1024 * 1024))
 }

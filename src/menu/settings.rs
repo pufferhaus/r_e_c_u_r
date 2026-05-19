@@ -27,6 +27,12 @@ impl SettingsBody {
     }
 }
 
+impl Default for SettingsBody {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Screen for SettingsBody {
     fn render(&self, state: &SharedState, grid: &mut TextGrid) {
         grid.write_row(4, &format!("{:<23} {:<22}", "SETTING", "VALUE"));

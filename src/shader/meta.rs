@@ -7,18 +7,13 @@ use serde::Deserialize;
 
 use crate::error::{Error, Result};
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
 pub enum GlesVersion {
+    #[default]
     #[serde(rename = "1.00")]
     V100,
     #[serde(rename = "3.10")]
     V310,
-}
-
-impl Default for GlesVersion {
-    fn default() -> Self {
-        GlesVersion::V100
-    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]

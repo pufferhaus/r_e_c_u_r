@@ -175,13 +175,13 @@ struct ClipFb<'a> {
     y1: i32,
 }
 
-impl<'a> OriginDimensions for ClipFb<'a> {
+impl OriginDimensions for ClipFb<'_> {
     fn size(&self) -> Size {
         self.inner.size()
     }
 }
 
-impl<'a> DrawTarget for ClipFb<'a> {
+impl DrawTarget for ClipFb<'_> {
     type Color = BinaryColor;
     type Error = core::convert::Infallible;
 

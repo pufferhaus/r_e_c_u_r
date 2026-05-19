@@ -139,6 +139,7 @@ impl ShaderPipeline {
     ///
     /// # Safety
     /// Caller must hold a current GL context.
+    #[allow(clippy::too_many_arguments)]
     pub unsafe fn apply(
         &mut self,
         gl: &glow::Context,

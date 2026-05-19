@@ -92,6 +92,12 @@ impl RootScreen {
     }
 }
 
+impl Default for RootScreen {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Screen for RootScreen {
     fn render(&self, state: &SharedState, grid: &mut TextGrid) {
         self.render_chrome(state, grid);

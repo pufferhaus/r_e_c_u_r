@@ -15,6 +15,12 @@ impl ShdrBnkBody {
     }
 }
 
+impl Default for ShdrBnkBody {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Screen for ShdrBnkBody {
     fn render(&self, state: &SharedState, grid: &mut TextGrid) {
         let bank = state.current_shader_bank();

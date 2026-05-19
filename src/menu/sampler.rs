@@ -15,6 +15,12 @@ impl SamplerBody {
     }
 }
 
+impl Default for SamplerBody {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Screen for SamplerBody {
     fn render(&self, state: &SharedState, grid: &mut TextGrid) {
         let bank = state.current_bank();
@@ -59,6 +65,7 @@ impl Screen for SamplerBody {
     }
 }
 
+#[cfg(test)]
 fn fmt_slot_row(idx: usize, s: &Slot) -> String {
     fmt_slot_row_with_record_state(idx, s, None)
 }

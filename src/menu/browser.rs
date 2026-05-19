@@ -25,7 +25,15 @@ impl BrowserBody {
             top: 0,
         }
     }
+}
 
+impl Default for BrowserBody {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl BrowserBody {
     fn rows(&self, state: &SharedState) -> Vec<BrowserRow> {
         walk_browser(&state.paths_to_browser, &self.open)
     }
