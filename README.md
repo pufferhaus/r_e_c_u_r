@@ -1,4 +1,4 @@
-# r_e_c_u_Rs
+# r_e_c_u_rˢ
 
 Rust port of [cyberboy666/r_e_c_u_r](https://github.com/cyberboy666/r_e_c_u_r) — a video sampler for Raspberry Pi. Targets Pi 3 B+ and Pi 5 as separate compile-time builds; macOS and Linux x86_64 are supported for development.
 
